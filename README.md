@@ -60,10 +60,11 @@ Configurá en el hosting / Cursor Secrets:
 - `GOOGLE_REFRESH_TOKEN` (calendario del doctor)
 - `GOOGLE_CALENDAR_ID` (opcional, default `primary`)
 - `DOCTOR_PIN`
-- `DATABASE_URL` (Postgres/Supabase; sin esto o si falla la conexión → mock en memoria con seed volume)
-- En Vercel sin DB: mock automático (`VERCEL=1`); opcional `ODONTO_MEMORY_STORE=1` en local
-- Mock de reserva (ficha auto + Calendar mock, login real): activo sin `DATABASE_URL`; forzar con `ODONTO_MOCK_BOOKING=1`
-- **Temporal:** al integrar Supabase hay que **quitar todo el mock** — ver `docs/MOCKUP-TEMPORAL.md`
+- `DATABASE_URL` (Postgres de Supabase; sin esto → mock temporal)
+- `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (client helpers)
+- Setup paso a paso: `docs/SUPABASE.md`
+- **Temporal:** al confirmar DB, quitar mock — `docs/MOCKUP-TEMPORAL.md`
+- Roles (médico/admin/secretaria/paciente): etapa posterior
 
 Redirect URI de login paciente: `{AUTH_URL}/api/auth/callback/google`  
 - Local: `http://localhost:3847/api/auth/callback/google`  

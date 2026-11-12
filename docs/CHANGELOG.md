@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-12 (Supabase etapa 1)
+
+- Paquetes `@supabase/supabase-js` / `@supabase/ssr` + helpers `src/lib/supabase/*`.
+- `DATABASE_URL` con SSL automático para hosts Supabase; guía en `docs/SUPABASE.md`.
+- Auth.js se mantiene; sin roles ni Supabase Auth todavía.
+
 ## 2026-11-12 (mock temporal documentado)
 
 - `docs/MOCKUP-TEMPORAL.md`: checklist de qué borrar al integrar Supabase.

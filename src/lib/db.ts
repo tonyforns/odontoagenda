@@ -2,6 +2,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { Pool } from "pg";
 import { DEFAULT_DOCTOR_SEED } from "@/lib/clinic";
+import { shouldUseSsl } from "@/lib/db-ssl";
 import type { Appointment, Doctor, Patient, PatientSex } from "@/lib/types";
 
 declare global {
@@ -42,12 +43,16 @@ export function getPool(): Pool {
     throw new Error("DATABASE_URL is not set");
   }
   if (!global.__odontoPool) {
+    const rawUrl = process.env.DATABASE_URL;
+    // pg reciente trata sslmode=require como verify-full; manejamos SSL nosotros.
+    const connectionString = rawUrl
+      ?.replace(/[?&]sslmode=[^&]*/gi, "")
+      .replace(/[?&]uselibpqcompat=[^&]*/gi, "")
+      .replace(/\?&/, "?")
+      .replace(/[?&]$/, "");
     global.__odontoPool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl:
-        process.env.NODE_ENV === "production"
-          ? { rejectUnauthorized: false }
-          : undefined,
+      connectionString,
+      ssl: shouldUseSsl(rawUrl) ? { rejectUnauthorized: false } : undefined,
     });
   }
   return global.__odontoPool;
