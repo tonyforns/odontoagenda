@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
 import { DEFAULT_DOCTOR_SEED, clinic } from "@/lib/clinic";
+import { buildVolumeDemoStore } from "@/lib/demo-seed";
 import { endTimeFor } from "@/lib/slots";
 import type {
   Appointment,
@@ -42,54 +43,8 @@ function seedDoctor(): Doctor {
 }
 
 function seedStore(): StoreShape {
-  const doctor = seedDoctor();
-  const now = nowIso();
-  const patientId = randomUUID();
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  while (tomorrow.getDay() === 0 || tomorrow.getDay() === 6) {
-    tomorrow.setDate(tomorrow.getDate() + 1);
-  }
-  const date = tomorrow.toISOString().slice(0, 10);
-
-  const patient: Patient = {
-    id: patientId,
-    googleSub: "seed-demo-sub",
-    email: "maria@example.com",
-    firstName: "María",
-    lastName: "Pérez",
-    dni: "30111222",
-    birthDate: "1990-05-12",
-    sex: "female",
-    obraSocial: "Particular",
-    phone: "11 5555-1212",
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  const appointment: Appointment = {
-    id: randomUUID(),
-    doctorId: doctor.id,
-    patientId: patient.id,
-    date,
-    startTime: "10:00",
-    durationMinutes: doctor.slotMinutes,
-    endTime: endTimeFor("10:00", doctor.slotMinutes),
-    status: "confirmed",
-    manageToken: randomBytes(16).toString("hex"),
-    googleEventId: "mock-seed-1",
-    calendarMode: "mock",
-    createdAt: now,
-    updatedAt: now,
-    patient,
-    doctor: {
-      id: doctor.id,
-      fullName: doctor.fullName,
-      specialty: doctor.specialty,
-    },
-  };
-
-  return { doctors: [doctor], patients: [patient], appointments: [appointment] };
+  // Volume demo for empty local stores; re-seed with `pnpm seed:volume`.
+  return buildVolumeDemoStore();
 }
 
 function withJoins(store: StoreShape, appointment: Appointment): Appointment {
@@ -165,6 +120,11 @@ export async function getPatientById(
   return store.patients.find((p) => p.id === id);
 }
 
+export async function listPatients(): Promise<Patient[]> {
+  const store = await readStore();
+  return [...store.patients];
+}
+
 export async function upsertPatientFromGoogle(input: {
   googleSub: string;
   email: string;
@@ -196,6 +156,50 @@ export async function upsertPatientFromGoogle(input: {
     firstName: split.firstName,
     lastName: split.lastName,
     googleRefreshToken: input.refreshToken ?? null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  store.patients.push(patient);
+  await writeStore(store);
+  return patient;
+}
+
+export async function createManualPatient(input: {
+  profile: PatientProfileInput;
+  email?: string;
+}): Promise<Patient> {
+  const store = await readStore();
+  const now = nowIso();
+  const dni = input.profile.dni;
+  const existing = store.patients.find((p) => p.dni === dni);
+  if (existing) {
+    existing.firstName = input.profile.firstName.trim();
+    existing.lastName = input.profile.lastName.trim();
+    existing.birthDate = input.profile.birthDate;
+    existing.sex = input.profile.sex;
+    existing.obraSocial = input.profile.obraSocial.trim();
+    existing.phone = input.profile.phone.trim();
+    if (input.email?.trim()) {
+      existing.email = input.email.trim().toLowerCase();
+    }
+    existing.updatedAt = now;
+    await writeStore(store);
+    return existing;
+  }
+
+  const patient: Patient = {
+    id: randomUUID(),
+    googleSub: `manual-${randomUUID()}`,
+    email:
+      input.email?.trim().toLowerCase() ||
+      `manual.${dni}@consultorio.local`,
+    firstName: input.profile.firstName.trim(),
+    lastName: input.profile.lastName.trim(),
+    dni,
+    birthDate: input.profile.birthDate,
+    sex: input.profile.sex,
+    obraSocial: input.profile.obraSocial.trim(),
+    phone: input.profile.phone.trim(),
     createdAt: now,
     updatedAt: now,
   };

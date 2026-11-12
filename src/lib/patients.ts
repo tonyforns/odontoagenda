@@ -5,13 +5,17 @@ import {
   hasDatabaseUrl,
   rowToPatient,
 } from "@/lib/db";
-import { splitGoogleName } from "@/lib/patient-utils";
+import {
+  sortPatientsByName,
+  splitGoogleName,
+} from "@/lib/patient-utils";
 import type { Patient, PatientProfileInput } from "@/lib/types";
 import * as fileStore from "@/lib/store";
 
 export {
   isProfileComplete,
   patientDisplayName,
+  sortPatientsByName,
   splitGoogleName,
 } from "@/lib/patient-utils";
 
@@ -36,6 +40,17 @@ export async function getPatientById(
     id,
   ]);
   return rows[0] ? rowToPatient(rows[0]) : undefined;
+}
+
+export async function listPatients(): Promise<Patient[]> {
+  if (!hasDatabaseUrl()) {
+    return sortPatientsByName(await fileStore.listPatients());
+  }
+  await ensureSchema();
+  const { rows } = await getPool().query(
+    `SELECT * FROM patients ORDER BY last_name ASC, first_name ASC, email ASC`,
+  );
+  return sortPatientsByName(rows.map(rowToPatient));
 }
 
 export async function upsertFromGoogleSession(input: {
@@ -87,6 +102,74 @@ export async function upsertFromGoogleSession(input: {
       split.firstName,
       split.lastName,
       input.refreshToken ?? null,
+      now,
+      now,
+    ],
+  );
+  return rowToPatient(rows[0]);
+}
+
+export async function createManualPatient(input: {
+  profile: PatientProfileInput;
+  email?: string;
+}): Promise<Patient> {
+  if (!hasDatabaseUrl()) return fileStore.createManualPatient(input);
+
+  await ensureSchema();
+  const dni = input.profile.dni;
+  const email =
+    input.email?.trim().toLowerCase() || `manual.${dni}@consultorio.local`;
+  const now = new Date().toISOString();
+
+  const existing = await getPool().query(
+    `SELECT * FROM patients WHERE dni = $1 LIMIT 1`,
+    [dni],
+  );
+  if (existing.rows[0]) {
+    const { rows } = await getPool().query(
+      `UPDATE patients SET
+        first_name = $2,
+        last_name = $3,
+        birth_date = $4,
+        sex = $5,
+        obra_social = $6,
+        phone = $7,
+        email = COALESCE(NULLIF($8, ''), email),
+        updated_at = $9
+       WHERE id = $1
+       RETURNING *`,
+      [
+        existing.rows[0].id,
+        input.profile.firstName.trim(),
+        input.profile.lastName.trim(),
+        input.profile.birthDate,
+        input.profile.sex,
+        input.profile.obraSocial.trim(),
+        input.profile.phone.trim(),
+        email,
+        now,
+      ],
+    );
+    return rowToPatient(rows[0]);
+  }
+
+  const { rows } = await getPool().query(
+    `INSERT INTO patients (
+      id, google_sub, email, first_name, last_name, dni, birth_date, sex,
+      obra_social, phone, created_at, updated_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+    RETURNING *`,
+    [
+      randomUUID(),
+      `manual-${randomUUID()}`,
+      email,
+      input.profile.firstName.trim(),
+      input.profile.lastName.trim(),
+      dni,
+      input.profile.birthDate,
+      input.profile.sex,
+      input.profile.obraSocial.trim(),
+      input.profile.phone.trim(),
       now,
       now,
     ],

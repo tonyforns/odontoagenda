@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { ArrowRight, CalendarClock, IdCard, RefreshCcw } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { clinic } from "@/lib/clinic";
 
 export default function HomePage() {
   return (
-    <div>
+    <div className="h-full overflow-y-auto">
       <section className="relative overflow-hidden">
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
           <div className="animate-rise">
@@ -55,48 +55,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      <section className="border-t border-teal-900/10 bg-white/40">
-        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-14 sm:px-6 md:grid-cols-3">
-          <Feature
-            icon={<CalendarClock className="size-5" />}
-            title="Horarios reales"
-            text="Solo se muestran franjas libres según la agenda del consultorio."
-          />
-          <Feature
-            icon={<IdCard className="size-5" />}
-            title="Identidad con DNI"
-            text="Cada reserva queda ligada a DNI y fecha de nacimiento para gestionarlo después."
-          />
-          <Feature
-            icon={<RefreshCcw className="size-5" />}
-            title="Google Calendar"
-            text="El turno entra al calendario Gmail del profesional; el paciente puede agregarlo al suyo."
-          />
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function Feature({
-  icon,
-  title,
-  text,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  text: string;
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="inline-flex size-10 items-center justify-center rounded-xl bg-teal-800 text-teal-50">
-        {icon}
-      </div>
-      <h2 className="font-[family-name:var(--font-display)] text-xl text-teal-950">
-        {title}
-      </h2>
-      <p className="text-sm leading-relaxed text-teal-900/70">{text}</p>
     </div>
   );
 }

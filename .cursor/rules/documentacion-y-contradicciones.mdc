@@ -1,0 +1,28 @@
+---
+description: Documentar cambios y avisar contradicciones antes de aplicarlos
+alwaysApply: true
+---
+
+# Documentación y contradicciones
+
+## Documentar
+
+Al completar un cambio relevante (feature, fix, schema, auth, UI, flujo):
+
+1. Agregá una entrada en `docs/CHANGELOG.md` (fecha ISO, qué, por qué).
+2. Si cambió cómo se usa la app, actualizá `README.md`.
+3. No documentes typos ni refactors triviales.
+4. Español, breve: máximo 6 viñetas por entrada.
+
+## Contradicciones — doble chequeo obligatorio
+
+Antes de implementar, contrastá el pedido con:
+
+- `docs/CHANGELOG.md`, `README.md`, `AGENTS.md` y reglas en `.cursor/rules/`
+- Código/config vigente (PIN, puertos, auth, schema, flujos)
+
+Si el cambio **contradice** una decisión previa (ej. “sacar login Gmail” vs login obligatorio, otro puerto, otro doctor/PIN, otro modelo de datos):
+
+1. **Pará** y avisá en el chat con: decisión previa → pedido nuevo → impacto.
+2. Pedí confirmación explícita antes de codear.
+3. No “arregles” la contradicción en silencio.

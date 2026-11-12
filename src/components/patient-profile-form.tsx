@@ -61,17 +61,20 @@ export function PatientProfileForm({ patient, onSaved }: Props) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
-      <div>
-        <h2 className="font-[family-name:var(--font-display)] text-2xl text-teal-950">
+    <form
+      onSubmit={onSubmit}
+      className="mx-auto flex h-full max-w-2xl flex-col gap-3 overflow-y-auto"
+    >
+      <div className="shrink-0">
+        <h2 className="font-[family-name:var(--font-display)] text-xl text-teal-950">
           Tu ficha de paciente
         </h2>
-        <p className="mt-1 text-sm text-teal-900/70">
-          Completá estos datos una vez. Quedan vinculados a tu cuenta Gmail.
+        <p className="mt-0.5 text-sm text-teal-900/70">
+          Completá estos datos una vez. Quedan vinculados a tu Gmail.
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="firstName">Nombre</Label>
           <Input

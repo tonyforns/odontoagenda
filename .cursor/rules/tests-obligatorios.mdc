@@ -1,0 +1,23 @@
+---
+description: Exigir tests con cada cambio y correrlos antes de dar por terminado
+alwaysApply: true
+---
+
+# Tests obligatorios
+
+## Al hacer un cambio
+
+1. Escribí o actualizá tests que cubran el comportamiento nuevo o corregido.
+2. Preferí tests unitarios de `src/lib/**` y validadores; APIs/UI solo si el riesgo lo justifica.
+3. Ubicación: `src/**/*.test.ts` (o `.tsx` si aplica).
+4. Corré `pnpm test` antes de dar la tarea por terminada.
+5. Si fallan, arreglá el código o el test; no marques listo con tests en rojo.
+6. Si el cambio es solo docs/reglas/estilos sin lógica, indicá “sin tests” en una línea.
+
+## Comando
+
+```bash
+pnpm test
+```
+
+Stack: Vitest. No uses npm.

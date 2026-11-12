@@ -16,7 +16,7 @@ Abrí `http://localhost:3847`.
 | `/` | Inicio |
 | `/reservar` | Pedir turno (requiere login con Gmail) |
 | `/mis-turnos` | Login Gmail: cancelar/reprogramar, agregar al calendario |
-| `/admin` | Agenda del consultorio (PIN demo: `1752`) |
+| `/admin` | Agenda, pacientes y fichas (PIN demo: `1752`) |
 
 Datos de ejemplo precargados: DNI `30111222`, nacimiento `1990-05-12`.
 
@@ -79,3 +79,6 @@ Sin Calendar del doctor, la reserva sigue funcionando (sync en modo demo). **Sin
 - `pnpm dev` — desarrollo (puerto 3847)
 - `pnpm build` — build de producción
 - `pnpm start` — servir build (puerto 3847)
+- `pnpm test` — tests (Vitest)
+- `pnpm seed:volume` — carga pacientes/turnos demo (conserva datos reales)
+- Historial de cambios: `docs/CHANGELOG.md`

@@ -26,6 +26,29 @@ export const bookingSchema = z.object({
   doctorId: z.string().min(1).optional(),
 });
 
+export const adminPatientCreateSchema = patientProfileSchema.extend({
+  email: z
+    .string()
+    .trim()
+    .optional()
+    .refine(
+      (value) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+      "Email inválido",
+    ),
+});
+
+export const adminAssignSchema = z
+  .object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    startTime: z.string().regex(/^\d{2}:\d{2}$/),
+    doctorId: z.string().min(1).optional(),
+    patientId: z.string().min(1).optional(),
+    patient: adminPatientCreateSchema.optional(),
+  })
+  .refine((data) => Boolean(data.patientId) || Boolean(data.patient), {
+    message: "Elegí un paciente o creá una ficha nueva.",
+  });
+
 export const lookupSchema = z.object({
   dni: z
     .string()

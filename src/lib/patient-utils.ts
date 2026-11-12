@@ -34,6 +34,63 @@ export function patientDisplayName(patient: Patient): string {
   return `${patient.firstName} ${patient.lastName}`.trim() || patient.email;
 }
 
+export function sortPatientsByName(patients: Patient[]): Patient[] {
+  return [...patients].sort((a, b) =>
+    patientDisplayName(a).localeCompare(patientDisplayName(b), "es", {
+      sensitivity: "base",
+    }),
+  );
+}
+
+function normalizeSearch(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+/** Free-text filter: name, DNI, phone, email, obra social. */
+export function filterPatients(
+  patients: Patient[],
+  query: string,
+  obraSocial?: string,
+): Patient[] {
+  const q = normalizeSearch(query);
+  const digits = query.replace(/\D/g, "");
+  const obra = obraSocial?.trim() ?? "";
+
+  return patients.filter((patient) => {
+    if (obra && (patient.obraSocial ?? "") !== obra) return false;
+    if (!q && !digits) return true;
+
+    const haystack = normalizeSearch(
+      [
+        patientDisplayName(patient),
+        patient.email,
+        patient.obraSocial ?? "",
+        patient.phone ?? "",
+        patient.dni ?? "",
+      ].join(" "),
+    );
+    const dni = (patient.dni ?? "").replace(/\D/g, "");
+    const phone = (patient.phone ?? "").replace(/\D/g, "");
+
+    if (q && haystack.includes(q)) return true;
+    if (digits && (dni.includes(digits) || phone.includes(digits))) return true;
+    return false;
+  });
+}
+
+export function uniqueObrasSociales(patients: Patient[]): string[] {
+  const set = new Set<string>();
+  for (const p of patients) {
+    const value = p.obraSocial?.trim();
+    if (value) set.add(value);
+  }
+  return [...set].sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+}
+
 export const SEX_LABELS: Record<PatientSex, string> = {
   female: "Femenino",
   male: "Masculino",

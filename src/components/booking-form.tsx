@@ -215,7 +215,7 @@ export function BookingForm() {
 
   if (status === "loading" || googleConfigured === null) {
     return (
-      <p className="flex items-center justify-center gap-2 py-16 text-sm text-teal-900/60">
+      <p className="flex h-full items-center justify-center gap-2 text-sm text-teal-900/60">
         <Loader2 className="size-4 animate-spin" /> Preparando reserva…
       </p>
     );
@@ -223,17 +223,16 @@ export function BookingForm() {
 
   if (!session?.user) {
     return (
-      <div className="mx-auto max-w-md space-y-6 py-4 text-center sm:py-8">
-        <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-teal-800/10 text-teal-800">
-          <LogIn className="size-6" />
+      <div className="mx-auto flex h-full max-w-md flex-col items-center justify-center space-y-4 text-center">
+        <div className="flex size-12 items-center justify-center rounded-full bg-teal-800/10 text-teal-800">
+          <LogIn className="size-5" />
         </div>
         <div>
-          <h2 className="font-[family-name:var(--font-display)] text-3xl tracking-tight text-teal-950">
+          <h2 className="font-[family-name:var(--font-display)] text-2xl tracking-tight text-teal-950">
             Iniciá con Gmail
           </h2>
-          <p className="mt-3 text-teal-900/70 leading-relaxed">
-            Asociamos el turno a tu cuenta para que después puedas cancelarlo o
-            reprogramarlo sin trámites.
+          <p className="mt-2 text-sm leading-relaxed text-teal-900/70">
+            Asociamos el turno a tu cuenta para cancelar o reprogramar después.
           </p>
         </div>
         {googleConfigured ? (
@@ -259,7 +258,7 @@ export function BookingForm() {
 
   if (loadingPatient || !patient) {
     return (
-      <p className="flex items-center justify-center gap-2 py-16 text-sm text-teal-900/60">
+      <p className="flex h-full items-center justify-center gap-2 text-sm text-teal-900/60">
         <Loader2 className="size-4 animate-spin" /> Cargando ficha…
       </p>
     );
@@ -280,27 +279,27 @@ export function BookingForm() {
   const canConfirm = Boolean(date && startTime);
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
-      <div className="overflow-hidden rounded-2xl border border-teal-900/10 bg-gradient-to-br from-white via-white to-teal-50/40">
-        <div className="grid lg:grid-cols-2">
-          <section className="border-b border-teal-900/8 p-5 sm:p-6 lg:border-b-0 lg:border-r">
-            <div className="mb-4 flex items-center gap-2.5">
-              <span className="flex size-8 items-center justify-center rounded-full bg-teal-800 text-[13px] font-semibold text-white">
+    <form onSubmit={onSubmit} className="flex h-full min-h-0 flex-col gap-2">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-teal-900/10 bg-gradient-to-br from-white via-white to-teal-50/40">
+        <div className="grid min-h-0 flex-1 lg:grid-cols-2">
+          <section className="min-h-0 overflow-y-auto border-b border-teal-900/8 p-3 sm:p-4 lg:border-b-0 lg:border-r">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="flex size-7 items-center justify-center rounded-full bg-teal-800 text-xs font-semibold text-white">
                 1
               </span>
               <div>
-                <h2 className="font-[family-name:var(--font-display)] text-xl tracking-tight text-teal-950">
+                <h2 className="font-[family-name:var(--font-display)] text-lg tracking-tight text-teal-950">
                   Elegí el día
                 </h2>
-                <p className="text-xs text-teal-800/55">
+                <p className="text-[0.65rem] text-teal-800/55">
                   Solo días con horario libre
                 </p>
               </div>
             </div>
 
             {dates.length === 0 ? (
-              <div className="flex min-h-[280px] flex-col items-center justify-center gap-2 text-center text-sm text-teal-900/55">
-                <CalendarDays className="size-8 opacity-40" />
+              <div className="flex min-h-[12rem] flex-col items-center justify-center gap-2 text-center text-sm text-teal-900/55">
+                <CalendarDays className="size-7 opacity-40" />
                 <p>No hay días disponibles por ahora.</p>
               </div>
             ) : (
@@ -312,11 +311,11 @@ export function BookingForm() {
             )}
           </section>
 
-          <section className="flex min-h-[280px] flex-col p-5 sm:p-6">
-            <div className="mb-4 flex items-center gap-2.5">
+          <section className="flex min-h-0 flex-col p-3 sm:p-4">
+            <div className="mb-3 flex shrink-0 items-center gap-2">
               <span
                 className={cn(
-                  "flex size-8 items-center justify-center rounded-full text-[13px] font-semibold transition",
+                  "flex size-7 items-center justify-center rounded-full text-xs font-semibold transition",
                   date
                     ? "bg-teal-800 text-white"
                     : "bg-teal-800/10 text-teal-800/50",
@@ -325,22 +324,21 @@ export function BookingForm() {
                 2
               </span>
               <div>
-                <h2 className="font-[family-name:var(--font-display)] text-xl tracking-tight text-teal-950">
+                <h2 className="font-[family-name:var(--font-display)] text-lg tracking-tight text-teal-950">
                   Elegí el horario
                 </h2>
-                <p className="text-xs capitalize text-teal-800/55">
+                <p className="text-[0.65rem] capitalize text-teal-800/55">
                   {date ? formatLongDate(date) : "Esperando el día"}
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-1 flex-col">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               {!date ? (
-                <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-teal-900/12 bg-teal-50/30 px-4 py-10 text-center">
-                  <Clock3 className="size-7 text-teal-800/35" />
+                <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-teal-900/12 bg-teal-50/30 px-4 py-6 text-center">
+                  <Clock3 className="size-6 text-teal-800/35" />
                   <p className="max-w-[16rem] text-sm text-teal-900/55">
-                    Seleccioná un día en el calendario para ver los horarios
-                    libres.
+                    Seleccioná un día para ver horarios libres.
                   </p>
                 </div>
               ) : loadingSlots ? (
@@ -352,7 +350,7 @@ export function BookingForm() {
                   Sin horarios libres ese día.
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 content-start">
+                <div className="grid grid-cols-3 content-start gap-1.5 sm:grid-cols-4">
                   {slots.map((slot) => {
                     const selected = startTime === slot;
                     return (
@@ -361,7 +359,7 @@ export function BookingForm() {
                         type="button"
                         onClick={() => setStartTime(slot)}
                         className={cn(
-                          "rounded-xl border px-2 py-2.5 text-sm transition-all duration-200",
+                          "rounded-lg border px-2 py-2 text-sm transition-all duration-200",
                           selected
                             ? "border-teal-800 bg-teal-800 text-white shadow-[0_10px_24px_-14px_rgba(17,94,89,0.95)]"
                             : "border-teal-900/10 bg-white/80 text-teal-950 hover:border-teal-700/30 hover:bg-teal-50",
@@ -377,14 +375,17 @@ export function BookingForm() {
           </section>
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-teal-900/8 bg-white/60 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <p className="text-sm text-teal-900/60">
+        <div className="flex shrink-0 flex-col gap-2 border-t border-teal-900/8 bg-white/60 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+          <p className="truncate text-sm text-teal-900/60">
             {canConfirm ? (
               <>
-                <span className="font-medium text-teal-950 capitalize">
+                <span className="font-medium capitalize text-teal-950">
                   {formatLongDate(date)}
                 </span>
-                <span> · {startTime} hs · {clinic.doctorName}</span>
+                <span>
+                  {" "}
+                  · {startTime} hs · {clinic.doctorName}
+                </span>
               </>
             ) : (
               "Completá día y horario para confirmar"
@@ -407,7 +408,7 @@ export function BookingForm() {
       </div>
 
       {error ? (
-        <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p className="shrink-0 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {error}
         </p>
       ) : null}

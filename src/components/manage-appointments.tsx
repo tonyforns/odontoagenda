@@ -146,14 +146,14 @@ export function ManageAppointments() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="flex h-full min-h-0 flex-col gap-3">
       {error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p className="shrink-0 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {error}
         </p>
       ) : null}
       {message ? (
-        <p className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900">
+        <p className="shrink-0 rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900">
           {message}
         </p>
       ) : null}
@@ -163,13 +163,13 @@ export function ManageAppointments() {
           <Loader2 className="size-4 animate-spin" /> Buscando turnos…
         </p>
       ) : appointments.length === 0 ? (
-        <p className="text-teal-900/70">No tenés turnos registrados.</p>
+        <p className="text-sm text-teal-900/70">No tenés turnos registrados.</p>
       ) : (
-        <ul className="space-y-4">
+        <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
           {appointments.map((a) => (
             <li
               key={a.id}
-              className="rounded-2xl border border-teal-900/10 bg-white/80 p-5"
+              className="rounded-xl border border-teal-900/10 bg-white/90 p-3 sm:p-4"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
