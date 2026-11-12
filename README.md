@@ -62,6 +62,7 @@ Configurá en el hosting / Cursor Secrets:
 - `DOCTOR_PIN`
 - `DATABASE_URL` (Postgres; sin esto o si falla la conexión → mock en memoria con seed volume)
 - En Vercel sin DB: mock automático (`VERCEL=1`); opcional `ODONTO_MEMORY_STORE=1` en local
+- Mock de reserva (ficha auto + Calendar mock, login real): activo sin `DATABASE_URL`; forzar con `ODONTO_MOCK_BOOKING=1`
 
 Redirect URI de login paciente: `{AUTH_URL}/api/auth/callback/google`  
 - Local: `http://localhost:3847/api/auth/callback/google`  

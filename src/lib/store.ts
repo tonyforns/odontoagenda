@@ -3,6 +3,10 @@ import { promises as fs } from "fs";
 import path from "path";
 import { DEFAULT_DOCTOR_SEED, clinic } from "@/lib/clinic";
 import { buildVolumeDemoStore } from "@/lib/demo-seed";
+import {
+  preferMemoryStore,
+  withMockCompleteProfile,
+} from "@/lib/mock-mode";
 import { endTimeFor } from "@/lib/slots";
 import type {
   Appointment,
@@ -11,6 +15,8 @@ import type {
   Patient,
   PatientProfileInput,
 } from "@/lib/types";
+
+export { preferMemoryStore };
 
 function splitGoogleName(name?: string | null): {
   firstName: string;
@@ -50,14 +56,6 @@ function seedDoctor(): Doctor {
 function seedStore(): StoreShape {
   // Volume demo for empty local stores / Vercel mock; re-seed with `pnpm seed:volume`.
   return buildVolumeDemoStore();
-}
-
-/** Vercel (u ODONTO_MEMORY_STORE): mock en memoria con el seed volume. */
-export function preferMemoryStore(): boolean {
-  const flag = process.env.ODONTO_MEMORY_STORE;
-  if (flag === "1" || flag === "true") return true;
-  if (flag === "0" || flag === "false") return false;
-  return process.env.VERCEL === "1";
 }
 
 function getMemoryStore(): StoreShape {
@@ -190,11 +188,13 @@ export async function upsertPatientFromGoogle(input: {
       existing.googleRefreshToken = input.refreshToken;
     }
     existing.updatedAt = now;
+    const completed = withMockCompleteProfile(existing);
+    Object.assign(existing, completed);
     await writeStore(store);
     return existing;
   }
 
-  const patient: Patient = {
+  const patient: Patient = withMockCompleteProfile({
     id: randomUUID(),
     googleSub: input.googleSub,
     email,
@@ -203,7 +203,7 @@ export async function upsertPatientFromGoogle(input: {
     googleRefreshToken: input.refreshToken ?? null,
     createdAt: now,
     updatedAt: now,
-  };
+  });
   store.patients.push(patient);
   await writeStore(store);
   return patient;

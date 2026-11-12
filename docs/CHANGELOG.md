@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-11 (mock sacar turno)
+
+- Sin DB: login Gmail real; ficha se completa sola (demo) y la reserva usa Calendar mock.
+- Banner “modo demo” en Reservar.
+
 ## 2026-11-11 (OAuth Vercel)
 
 - `/api/auth/status` expone el callback según `AUTH_URL` / host (no hardcode localhost).

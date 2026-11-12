@@ -4,6 +4,7 @@ import {
   googleOAuthCallbackUrl,
   resolvePublicOrigin,
 } from "@/lib/auth-public-url";
+import { isMockBookingMode } from "@/lib/mock-mode";
 
 export async function GET(request: Request) {
   const origin = resolvePublicOrigin({
@@ -17,5 +18,6 @@ export async function GET(request: Request) {
     googleConfigured: isGoogleAuthConfigured(),
     callbackUrl: googleOAuthCallbackUrl(origin),
     authUrl: origin,
+    mockBooking: isMockBookingMode(),
   });
 }

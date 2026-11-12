@@ -15,6 +15,7 @@ import {
   syncAppointmentToDoctorCalendar,
   syncAppointmentToPatientCalendar,
 } from "@/lib/google-calendar";
+import { isMockBookingMode } from "@/lib/mock-mode";
 import { upsertFromGoogleSession } from "@/lib/patients";
 import { isProfileComplete } from "@/lib/patient-utils";
 import { publicAppointment } from "@/lib/public-appointment";
@@ -142,6 +143,28 @@ export async function POST(request: NextRequest) {
     },
   };
 
+  const mockBooking = isMockBookingMode();
+
+  if (mockBooking) {
+    appointment =
+      (await updateAppointment(appointment.id, {
+        calendarMode: "mock",
+        googleEventId: `mock-${appointment.id}`,
+      })) ?? appointment;
+
+    return NextResponse.json(
+      {
+        appointment: publicAppointment({ ...appointment, patient }),
+        calendar: calendarIntegrationStatus(),
+        patientCalendarSynced: false,
+        mockBooking: true,
+        message:
+          "Turno reservado (modo demo). El login es real; Calendar queda mockeado.",
+      },
+      { status: 201 },
+    );
+  }
+
   try {
     const sync = await syncAppointmentToDoctorCalendar(appointment);
     appointment =
@@ -179,6 +202,7 @@ export async function POST(request: NextRequest) {
       appointment: publicAppointment({ ...appointment, patient }),
       calendar: calendarIntegrationStatus(),
       patientCalendarSynced,
+      mockBooking: false,
       message: patientCalendarSynced
         ? "Turno reservado y agregado a tu Google Calendar."
         : appointment.calendarMode === "google"
