@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isGoogleAuthConfigured } from "@/auth";
+import { getLastAuthError } from "@/lib/auth-debug";
 import {
   googleOAuthCallbackUrl,
   resolvePublicOrigin,
@@ -27,5 +28,6 @@ export async function GET(request: Request) {
       process.env.NEXTAUTH_SECRET ||
       ""
     ).trim().length,
+    lastAuthError: getLastAuthError(),
   });
 }

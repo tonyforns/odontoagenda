@@ -1,7 +1,8 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
-import { upsertFromGoogleSession } from "@/lib/patients";
+import { rememberAuthError } from "@/lib/auth-debug";
 import { isMockBookingMode } from "@/lib/mock-mode";
+import { upsertFromGoogleSession } from "@/lib/patients";
 
 declare module "next-auth" {
   interface Session {
@@ -31,7 +32,7 @@ const googleClientSecret =
   env("AUTH_GOOGLE_SECRET") || env("GOOGLE_CLIENT_SECRET");
 const authSecret = env("AUTH_SECRET") || env("NEXTAUTH_SECRET");
 
-/** En mock no pedimos Calendar: consent más simple, login más estable. */
+/** En mock no pedimos Calendar: consent más simple. */
 function googleScopes() {
   const base = ["openid", "email", "profile"];
   if (!isMockBookingMode()) {
@@ -44,11 +45,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: authSecret || undefined,
   trustHost: true,
   session: { strategy: "jwt" },
+  debug: process.env.AUTH_DEBUG === "1" || process.env.VERCEL === "1",
   providers: isGoogleAuthConfigured()
     ? [
         Google({
           clientId: googleClientId,
           clientSecret: googleClientSecret,
+          // Obligatorio si overrideamos token/userinfo: si no, issuer cae en
+          // "https://authjs.dev" y el id_token de Google falla → Configuration.
+          issuer: "https://accounts.google.com",
           authorization: {
             params: {
               scope: googleScopes(),
@@ -57,8 +62,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               response_type: "code",
             },
           },
-          // Evita validación OIDC `iss` rota en algunos callbacks de Google.
-          checks: ["pkce", "state"],
+          // Evita discovery OIDC (a veces dispara "iss missing").
+          token: "https://oauth2.googleapis.com/token",
+          userinfo: "https://openidconnect.googleapis.com/v1/userinfo",
+          client: {
+            token_endpoint_auth_method: "client_secret_post",
+          },
         }),
       ]
     : [],
@@ -119,6 +128,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   logger: {
     error(error) {
+      rememberAuthError(error);
       console.error("[auth][error]", error);
     },
   },

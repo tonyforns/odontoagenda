@@ -26,7 +26,7 @@ type Step = "form" | "success";
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   Configuration:
-    "Auth.js rechazó la config. En Vercel: AUTH_SECRET, AUTH_GOOGLE_ID y AUTH_GOOGLE_SECRET sin comillas, Environment=Production, y Redeploy. Redirect: https://odontoagenda.vercel.app/api/auth/callback/google",
+    "Falló el callback de Google (Auth.js lo oculta como Configuration). Suele ser issuer/id_token o Client Secret. Tras reintentar, abrí /api/auth/status y mirá lastAuthError.",
   AccessDenied:
     "Google rechazó el acceso. Agregá tu Gmail en Test users (Google Cloud → OAuth consent).",
   Verification: "No se pudo verificar el login. Probá de nuevo.",

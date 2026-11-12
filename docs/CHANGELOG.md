@@ -1,9 +1,13 @@
 # Changelog
 
+## 2026-11-12 (login Gmail issuer)
+
+- Google OAuth: `issuer` + `token`/`userinfo` explícitos (evita Configuration por id_token).
+- `/api/auth/status` expone `lastAuthError` para diagnosticar.
+
 ## 2026-11-12 (login Gmail Configuration)
 
-- Provider Google simplificado (PKCE/state, scopes básicos en mock, trim de secrets).
-- Mensaje de error `Configuration` más concreto para Vercel.
+- Provider Google simplificado; trim de secrets; mensaje de error más concreto.
 
 ## 2026-11-12 (login Gmail estable)
 
