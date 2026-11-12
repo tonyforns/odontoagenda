@@ -48,11 +48,19 @@ export function BookingForm() {
   const [calendarMode, setCalendarMode] = useState<"google" | "mock">("mock");
   const [patientCalendarSynced, setPatientCalendarSynced] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [oauthCallbackUrl, setOauthCallbackUrl] = useState(
+    "https://odontoagenda.vercel.app/api/auth/callback/google",
+  );
 
   useEffect(() => {
     fetch("/api/auth/status")
       .then((r) => r.json())
-      .then((data) => setGoogleConfigured(Boolean(data.googleConfigured)))
+      .then((data) => {
+        setGoogleConfigured(Boolean(data.googleConfigured));
+        if (typeof data.callbackUrl === "string" && data.callbackUrl) {
+          setOauthCallbackUrl(data.callbackUrl);
+        }
+      })
       .catch(() => setGoogleConfigured(false));
   }, []);
 
@@ -247,8 +255,12 @@ export function BookingForm() {
         ) : (
           <div className="rounded-xl border border-amber-200/80 bg-amber-50 px-4 py-3 text-left text-sm text-amber-950">
             <p className="font-medium">Falta configurar Google OAuth</p>
+            <p className="mt-1 text-xs opacity-80">
+              En Vercel seteá AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET y AUTH_URL.
+              Redirect URI en Google:
+            </p>
             <code className="mt-2 block break-all text-xs opacity-80">
-              http://localhost:3847/api/auth/callback/google
+              {oauthCallbackUrl}
             </code>
           </div>
         )}

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-11 (OAuth Vercel)
+
+- `/api/auth/status` expone el callback según `AUTH_URL` / host (no hardcode localhost).
+- Home: hero a alto completo del main.
+
 ## 2026-11-11 (mock sin DB)
 
 - Sin `DATABASE_URL` o si Postgres no conecta: usa mock en memoria con el seed volume (pacientes/turnos demo).

@@ -64,7 +64,8 @@ Configurá en el hosting / Cursor Secrets:
 - En Vercel sin DB: mock automático (`VERCEL=1`); opcional `ODONTO_MEMORY_STORE=1` en local
 
 Redirect URI de login paciente: `{AUTH_URL}/api/auth/callback/google`  
-(en local: `http://localhost:3847/api/auth/callback/google`).
+- Local: `http://localhost:3847/api/auth/callback/google`  
+- Vercel: `https://odontoagenda.vercel.app/api/auth/callback/google` (y `AUTH_URL=https://odontoagenda.vercel.app`).
 
 Sin Calendar del doctor, la reserva sigue funcionando (sync en modo demo). **Sin Client ID/Secret no se puede iniciar sesión con Gmail.**
 
