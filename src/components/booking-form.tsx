@@ -26,12 +26,15 @@ type Step = "form" | "success";
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   Configuration:
-    "Falta AUTH_SECRET o las credenciales de Google en Vercel. Redeploy después de setearlas.",
-  AccessDenied: "Google rechazó el acceso. Probá con otra cuenta o como test user.",
+    "Auth.js rechazó la config. En Vercel: AUTH_SECRET, AUTH_GOOGLE_ID y AUTH_GOOGLE_SECRET sin comillas, Environment=Production, y Redeploy. Redirect: https://odontoagenda.vercel.app/api/auth/callback/google",
+  AccessDenied:
+    "Google rechazó el acceso. Agregá tu Gmail en Test users (Google Cloud → OAuth consent).",
   Verification: "No se pudo verificar el login. Probá de nuevo.",
   OAuthCallback:
-    "Falló el callback de Google (redirect URI o Client Secret). Revisá Google Cloud + AUTH_URL.",
+    "Falló el callback de Google. Revisá Client Secret y el redirect URI exacto en Google Cloud.",
   OAuthAccountNotLinked: "Esa cuenta ya está vinculada de otra forma.",
+  Callback:
+    "Falló el intercambio del código OAuth (secret o redirect URI incorrectos).",
   Default: "No se pudo completar el login con Gmail.",
 };
 

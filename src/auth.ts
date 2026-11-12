@@ -15,19 +15,23 @@ declare module "next-auth" {
   }
 }
 
+function env(name: string): string {
+  return (process.env[name] ?? "").trim();
+}
+
 export function isGoogleAuthConfigured() {
   return Boolean(
-    (process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID) &&
-      (process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET),
+    (env("AUTH_GOOGLE_ID") || env("GOOGLE_CLIENT_ID")) &&
+      (env("AUTH_GOOGLE_SECRET") || env("GOOGLE_CLIENT_SECRET")),
   );
 }
 
-const googleClientId =
-  process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID || "";
+const googleClientId = env("AUTH_GOOGLE_ID") || env("GOOGLE_CLIENT_ID");
 const googleClientSecret =
-  process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET || "";
+  env("AUTH_GOOGLE_SECRET") || env("GOOGLE_CLIENT_SECRET");
+const authSecret = env("AUTH_SECRET") || env("NEXTAUTH_SECRET");
 
-/** En mock no pedimos Calendar: el consent es más simple y el login más estable. */
+/** En mock no pedimos Calendar: consent más simple, login más estable. */
 function googleScopes() {
   const base = ["openid", "email", "profile"];
   if (!isMockBookingMode()) {
@@ -37,34 +41,33 @@ function googleScopes() {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+  secret: authSecret || undefined,
   trustHost: true,
   session: { strategy: "jwt" },
-  providers: [
-    Google({
-      clientId: googleClientId,
-      clientSecret: googleClientSecret,
-      issuer: "https://accounts.google.com",
-      authorization: {
-        params: {
-          scope: googleScopes(),
-          access_type: "offline",
-          prompt: "consent",
-          response_type: "code",
-        },
-      },
-      // Sin discovery OIDC: Google a veces no manda `iss` → "iss missing".
-      token: "https://oauth2.googleapis.com/token",
-      userinfo: "https://openidconnect.googleapis.com/v1/userinfo",
-    }),
-  ],
+  providers: isGoogleAuthConfigured()
+    ? [
+        Google({
+          clientId: googleClientId,
+          clientSecret: googleClientSecret,
+          authorization: {
+            params: {
+              scope: googleScopes(),
+              access_type: "offline",
+              prompt: "select_account",
+              response_type: "code",
+            },
+          },
+          // Evita validación OIDC `iss` rota en algunos callbacks de Google.
+          checks: ["pkce", "state"],
+        }),
+      ]
+    : [],
   pages: {
     signIn: "/reservar",
     error: "/reservar",
   },
   callbacks: {
     async signIn({ account }) {
-      // Solo Google; si el proveedor falla, Auth.js ya corta antes.
       return account?.provider === "google";
     },
     async jwt({ token, account, profile }) {

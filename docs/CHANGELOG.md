@@ -1,9 +1,14 @@
 # Changelog
 
+## 2026-11-12 (login Gmail Configuration)
+
+- Provider Google simplificado (PKCE/state, scopes básicos en mock, trim de secrets).
+- Mensaje de error `Configuration` más concreto para Vercel.
+
 ## 2026-11-12 (login Gmail estable)
 
 - En mock: login Google solo con `openid email profile` (sin Calendar).
-- Errores OAuth visibles en `/reservar?error=…`; issuer/wellKnown explícitos.
+- Errores OAuth visibles en `/reservar?error=…`.
 
 ## 2026-11-12 (auth Vercel)
 

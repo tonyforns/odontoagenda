@@ -20,7 +20,12 @@ export async function GET(request: Request) {
     authUrl: origin,
     mockBooking: isMockBookingMode(),
     hasAuthSecret: Boolean(
-      process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+      (process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "").trim(),
     ),
+    authSecretLength: (
+      process.env.AUTH_SECRET ||
+      process.env.NEXTAUTH_SECRET ||
+      ""
+    ).trim().length,
   });
 }
