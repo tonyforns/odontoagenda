@@ -4,11 +4,7 @@ import { clinic } from "@/lib/clinic";
 
 export default function AdminPage() {
   return (
-    <PageShell
-      eyebrow="Panel del profesional"
-      title={clinic.doctorName}
-      subtitle="Agenda · Pacientes · Fichas"
-    >
+    <PageShell eyebrow="Administración" title={clinic.brand}>
       <AdminPanel />
     </PageShell>
   );

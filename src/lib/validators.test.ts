@@ -4,6 +4,8 @@ import {
   bookingSchema,
   normalizeDni,
   patientProfileSchema,
+  staffPatchSchema,
+  staffUpsertSchema,
 } from "@/lib/validators";
 
 describe("normalizeDni", () => {
@@ -84,5 +86,37 @@ describe("adminAssignSchema", () => {
       startTime: "10:00",
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("staffUpsertSchema", () => {
+  it("normalizes email and accepts roles", () => {
+    const result = staffUpsertSchema.safeParse({
+      email: "  Sec@Gmail.com ",
+      role: "secretaria",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.email).toBe("sec@gmail.com");
+    }
+  });
+
+  it("rejects invalid role", () => {
+    const result = staffUpsertSchema.safeParse({
+      email: "a@b.com",
+      role: "paciente",
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("staffPatchSchema", () => {
+  it("accepts active or role", () => {
+    expect(staffPatchSchema.safeParse({ active: false }).success).toBe(true);
+    expect(staffPatchSchema.safeParse({ role: "medico" }).success).toBe(true);
+  });
+
+  it("rejects empty patch", () => {
+    expect(staffPatchSchema.safeParse({}).success).toBe(false);
   });
 });

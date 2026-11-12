@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   filterPatients,
+  paginateItems,
   patientDisplayName,
   sortPatientsByName,
   uniqueObrasSociales,
@@ -90,5 +91,26 @@ describe("uniqueObrasSociales", () => {
         patient({ id: "3", email: "c@c.com", obraSocial: "OSDE" }),
       ]),
     ).toEqual(["OSDE", "Particular"]);
+  });
+});
+
+describe("paginateItems", () => {
+  it("slices by page size and clamps page", () => {
+    const items = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    const page1 = paginateItems(items, 1, 10);
+    expect(page1.items).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(page1.totalPages).toBe(2);
+    expect(paginateItems(items, 99, 10).page).toBe(2);
+    expect(paginateItems(items, 0, 10).page).toBe(1);
+  });
+
+  it("handles empty list", () => {
+    const empty = paginateItems([], 3, 10);
+    expect(empty).toEqual({
+      page: 1,
+      totalPages: 1,
+      total: 0,
+      items: [],
+    });
   });
 });

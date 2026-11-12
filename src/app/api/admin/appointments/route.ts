@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
 import {
   createAppointment,
   isSlotTaken,
@@ -8,7 +9,7 @@ import {
 } from "@/lib/appointments";
 import { clinic } from "@/lib/clinic";
 import { publicPatient } from "@/lib/db";
-import { getDefaultDoctor, verifyDoctorPin } from "@/lib/doctors";
+import { getDefaultDoctor } from "@/lib/doctors";
 import {
   calendarIntegrationStatus,
   syncAppointmentToDoctorCalendar,
@@ -19,26 +20,26 @@ import {
 } from "@/lib/patients";
 import { publicAppointment } from "@/lib/public-appointment";
 import { availableSlotsForDate } from "@/lib/slots";
+import { requireStaffSession } from "@/lib/staff";
 import { adminAssignSchema } from "@/lib/validators";
 
-export async function GET(request: NextRequest) {
-  const pin = request.headers.get("x-doctor-pin") ?? "";
-  if (!(await verifyDoctorPin(pin))) {
-    return NextResponse.json({ error: "PIN incorrecto" }, { status: 401 });
+export async function GET() {
+  const gate = await requireStaffSession(await auth());
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.error }, { status: gate.status });
   }
 
   const appointments = await listAppointments();
   return NextResponse.json({
     appointments,
     calendar: calendarIntegrationStatus(),
-    demoPinHint: process.env.DOCTOR_PIN ? null : "1752",
   });
 }
 
 export async function POST(request: NextRequest) {
-  const pin = request.headers.get("x-doctor-pin") ?? "";
-  if (!(await verifyDoctorPin(pin))) {
-    return NextResponse.json({ error: "PIN incorrecto" }, { status: 401 });
+  const gate = await requireStaffSession(await auth());
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.error }, { status: gate.status });
   }
 
   let body: unknown;

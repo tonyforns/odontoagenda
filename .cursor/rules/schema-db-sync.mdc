@@ -1,0 +1,23 @@
+---
+description: Todo cambio de base de datos debe reflejarse en migrations, ensureSchema y tipos
+alwaysApply: true
+---
+
+# Schema DB sincronizado
+
+## Al cambiar la base de datos
+
+1. Agregá o actualizá una migración en `migrations/00N_*.sql` (fuente canónica; `pnpm db:migrate`).
+2. Reflejá el mismo DDL/seed en `ensureSchema()` de `src/lib/db.ts` (runtime en DB fresh / Vercel).
+3. Actualizá tipos en `src/lib/types.ts` y mapeos `rowTo*` si aplica.
+4. Si el dominio usa fallback sin Postgres, actualizá `src/lib/store.ts`.
+5. Documentá el cambio de schema en `docs/CHANGELOG.md`.
+
+## No alcanza
+
+- Tocar solo código de app sin migración / `ensureSchema`.
+- Tocar solo una de las dos rutas DDL (`migrations/` vs `ensureSchema`).
+
+## Contradicciones
+
+Si el pedido contradice el schema vigente (tablas, columnas, seeds, auth), pará y pedí confirmación explícita antes de codear.

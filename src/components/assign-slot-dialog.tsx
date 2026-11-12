@@ -28,7 +28,6 @@ type Mode = "existing" | "new";
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  pin: string;
   date: string;
   startTime: string;
   endTime: string;
@@ -39,7 +38,6 @@ type Props = {
 export function AssignSlotDialog({
   open,
   onOpenChange,
-  pin,
   date,
   startTime,
   endTime,
@@ -122,7 +120,6 @@ export function AssignSlotDialog({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-doctor-pin": pin,
         },
         body: JSON.stringify(body),
       });

@@ -3,7 +3,12 @@
 import { usePathname } from "next/navigation";
 import { clinic } from "@/lib/clinic";
 
-const HIDDEN_ON = new Set(["/admin", "/reservar", "/mis-turnos"]);
+const HIDDEN_ON = new Set([
+  "/admin",
+  "/consultorio",
+  "/reservar",
+  "/mis-turnos",
+]);
 
 export function SiteFooter() {
   const pathname = usePathname();

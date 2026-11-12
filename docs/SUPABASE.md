@@ -2,7 +2,7 @@
 
 Auth de la app: **Auth.js + Gmail** (no Supabase Auth).  
 Datos: **Postgres de Supabase** vía `DATABASE_URL` + `pg`.  
-Roles (médico/admin/secretaria/paciente): **etapa posterior**.
+Roles: tabla `clinic_staff` (`admin` / `medico` / `secretaria`); paciente = sin fila.
 
 ## 1. Proyecto
 
@@ -33,6 +33,7 @@ En **SQL Editor** de Supabase, ejecutá en orden:
 
 1. `migrations/002_doctors_patients_appointments.sql`
 2. `migrations/003_patient_calendar.sql`
+3. `migrations/004_clinic_staff.sql`
 
 Al primer request con `DATABASE_URL`, `ensureSchema()` también intenta aplicar DDL.
 
@@ -50,6 +51,7 @@ No hay middleware de Supabase Auth a propósito (evita chocar con Auth.js).
 
 ## 6. No hacer todavía
 
-- Roles / RLS por rol  
+- RLS por rol en Supabase  
 - Reemplazar Auth.js por Supabase Auth  
 - Exponer `service_role` al client  
+

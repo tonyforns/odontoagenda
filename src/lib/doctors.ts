@@ -27,11 +27,3 @@ export async function getDoctorById(id: string): Promise<Doctor> {
   return rowToDoctor(rows[0]);
 }
 
-export async function verifyDoctorPin(
-  pin: string,
-  doctorId = clinic.defaultDoctorId,
-): Promise<boolean> {
-  const doctor = await getDoctorById(doctorId);
-  const expected = process.env.DOCTOR_PIN || doctor.pin;
-  return pin === expected;
-}

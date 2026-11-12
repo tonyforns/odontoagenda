@@ -6,4 +6,4 @@ El modo demo en memoria / ficha auto / banner fue **eliminado** (2026-11-12) tra
 - Sin `DATABASE_URL` (solo local): JSON en `.data/store.json` (vacío + doctor). Demos densas: `pnpm seed:volume`
 - Auth: Auth.js + Gmail (sin cambios)
 
-Roles (médico / admin / secretaria / paciente): etapa futura.
+Roles: ver `clinic_staff` / `docs/CHANGELOG.md` (2026-11-12 roles + sin PIN).

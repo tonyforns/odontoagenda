@@ -1,12 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { auth } from "@/auth";
 import { publicPatient } from "@/lib/db";
-import { verifyDoctorPin } from "@/lib/doctors";
 import { listPatients } from "@/lib/patients";
+import { requireStaffSession } from "@/lib/staff";
 
-export async function GET(request: NextRequest) {
-  const pin = request.headers.get("x-doctor-pin") ?? "";
-  if (!(await verifyDoctorPin(pin))) {
-    return NextResponse.json({ error: "PIN incorrecto" }, { status: 401 });
+export async function GET() {
+  const gate = await requireStaffSession(await auth());
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.error }, { status: gate.status });
   }
 
   const patients = await listPatients();

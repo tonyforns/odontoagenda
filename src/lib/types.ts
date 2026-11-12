@@ -1,5 +1,22 @@
 export type PatientSex = "female" | "male" | "other" | "undisclosed";
 
+/** Roles de personal en clinic_staff. Paciente = sin fila. */
+export type StaffRole = "admin" | "medico" | "secretaria";
+
+/** Rol efectivo en sesión Auth.js. */
+export type AppRole = StaffRole | "paciente";
+
+export type ClinicStaff = {
+  id: string;
+  email: string;
+  googleSub?: string | null;
+  role: StaffRole;
+  doctorId?: string | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type DoctorWindow = { start: string; end: string };
 
 export type Doctor = {

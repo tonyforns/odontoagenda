@@ -1,23 +1,56 @@
 "use client";
 
-import { LogOut } from "lucide-react";
+import { LogIn, LogOut } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut, useSession } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { clinic } from "@/lib/clinic";
+import { isStaffRole } from "@/lib/staff-role";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { href: "/reservar", label: "Reservar", requiresAuth: false },
-  { href: "/mis-turnos", label: "Mis turnos", requiresAuth: true },
-  { href: "/admin", label: "Consultorio", requiresAuth: true },
+  {
+    href: "/reservar",
+    label: "Reservar",
+    requiresAuth: false,
+    requiresStaff: false,
+    requiresAdmin: false,
+  },
+  {
+    href: "/mis-turnos",
+    label: "Mis turnos",
+    requiresAuth: true,
+    requiresStaff: false,
+    requiresAdmin: false,
+  },
+  {
+    href: "/consultorio",
+    label: "Consultorio",
+    requiresAuth: true,
+    requiresStaff: true,
+    requiresAdmin: false,
+  },
+  {
+    href: "/admin",
+    label: "Admin",
+    requiresAuth: true,
+    requiresStaff: false,
+    requiresAdmin: true,
+  },
 ] as const;
 
 export function SiteHeader() {
   const pathname = usePathname();
   const { data: session, status } = useSession();
   const signedIn = status === "authenticated" && Boolean(session?.user);
-  const navItems = NAV.filter((item) => !item.requiresAuth || signedIn);
+  const isStaff = isStaffRole(session?.user?.role);
+  const isAdmin = session?.user?.role === "admin";
+  const navItems = NAV.filter((item) => {
+    if (item.requiresAdmin) return isAdmin;
+    if (item.requiresStaff) return isStaff;
+    if (item.requiresAuth) return signedIn;
+    return true;
+  });
 
   return (
     <header className="relative z-20 shrink-0 border-b border-teal-900/10 bg-white/75 backdrop-blur-md">
@@ -66,6 +99,21 @@ export function SiteHeader() {
                 </Link>
               );
             })}
+            {!signedIn && status !== "loading" ? (
+              <button
+                type="button"
+                onClick={() =>
+                  signIn("google", {
+                    callbackUrl: pathname || "/reservar",
+                    redirect: true,
+                  })
+                }
+                className="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1.5 text-xs font-medium text-teal-900/65 transition hover:text-teal-950 sm:px-3.5 sm:text-sm"
+              >
+                <LogIn className="size-3.5 shrink-0" />
+                Iniciar sesión
+              </button>
+            ) : null}
           </nav>
 
           {signedIn ? (

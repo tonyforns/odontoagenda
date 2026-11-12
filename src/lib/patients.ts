@@ -213,3 +213,53 @@ export async function updateProfile(
   );
   return rows[0] ? rowToPatient(rows[0]) : undefined;
 }
+
+/** Actualiza ficha por id. No modifica email. */
+export async function updatePatientById(
+  id: string,
+  profile: PatientProfileInput,
+): Promise<Patient | undefined> {
+  if (!(await useDatabase())) {
+    return fileStore.updatePatientById(id, profile);
+  }
+
+  await ensureSchema();
+  const now = new Date().toISOString();
+  try {
+    const { rows } = await getPool().query(
+      `UPDATE patients SET
+        first_name = $2,
+        last_name = $3,
+        dni = $4,
+        birth_date = $5,
+        sex = $6,
+        obra_social = $7,
+        phone = $8,
+        updated_at = $9
+       WHERE id = $1
+       RETURNING *`,
+      [
+        id,
+        profile.firstName.trim(),
+        profile.lastName.trim(),
+        profile.dni,
+        profile.birthDate,
+        profile.sex,
+        profile.obraSocial.trim(),
+        profile.phone.trim(),
+        now,
+      ],
+    );
+    return rows[0] ? rowToPatient(rows[0]) : undefined;
+  } catch (error) {
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String((error as { code?: string }).code)
+        : "";
+    if (code === "23505") {
+      const conflict = new Error("DNI_TAKEN");
+      throw conflict;
+    }
+    throw error;
+  }
+}

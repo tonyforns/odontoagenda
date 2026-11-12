@@ -82,6 +82,30 @@ export function filterPatients(
   });
 }
 
+export const PATIENTS_PAGE_SIZE = 10;
+
+export function paginateItems<T>(
+  items: T[],
+  page: number,
+  pageSize: number = PATIENTS_PAGE_SIZE,
+): {
+  page: number;
+  totalPages: number;
+  total: number;
+  items: T[];
+} {
+  const total = items.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const start = (safePage - 1) * pageSize;
+  return {
+    page: safePage,
+    totalPages,
+    total,
+    items: items.slice(start, start + pageSize),
+  };
+}
+
 export function uniqueObrasSociales(patients: Patient[]): string[] {
   const set = new Set<string>();
   for (const p of patients) {

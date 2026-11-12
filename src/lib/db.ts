@@ -3,7 +3,18 @@ import path from "path";
 import { Pool } from "pg";
 import { DEFAULT_DOCTOR_SEED } from "@/lib/clinic";
 import { shouldUseSsl } from "@/lib/db-ssl";
-import type { Appointment, Doctor, Patient, PatientSex } from "@/lib/types";
+import {
+  adminStaffSeed,
+  medicoStaffSeedFromEnv,
+} from "@/lib/staff-seed";
+import type {
+  Appointment,
+  ClinicStaff,
+  Doctor,
+  Patient,
+  PatientSex,
+  StaffRole,
+} from "@/lib/types";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -93,6 +104,17 @@ type PatientRow = {
   updated_at: Date | string;
 };
 
+type ClinicStaffRow = {
+  id: string;
+  email: string;
+  google_sub: string | null;
+  role: StaffRole;
+  doctor_id: string | null;
+  active: boolean;
+  created_at: Date | string;
+  updated_at: Date | string;
+};
+
 type AppointmentRow = {
   id: string;
   doctor_id: string;
@@ -162,6 +184,19 @@ export function rowToPatient(row: PatientRow): Patient {
     obraSocial: row.obra_social,
     phone: row.phone,
     googleRefreshToken: row.google_refresh_token ?? null,
+    createdAt: iso(row.created_at),
+    updatedAt: iso(row.updated_at),
+  };
+}
+
+export function rowToClinicStaff(row: ClinicStaffRow): ClinicStaff {
+  return {
+    id: row.id,
+    email: row.email,
+    googleSub: row.google_sub,
+    role: row.role,
+    doctorId: row.doctor_id,
+    active: Boolean(row.active),
     createdAt: iso(row.created_at),
     updatedAt: iso(row.updated_at),
   };
@@ -276,6 +311,36 @@ async function seedDoctor(pool: Pool): Promise<void> {
   );
 }
 
+async function upsertStaffSeed(
+  pool: Pool,
+  staff: ClinicStaff,
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO clinic_staff (
+      id, email, google_sub, role, doctor_id, active
+    ) VALUES ($1, $2, $3, $4, $5, $6)
+    ON CONFLICT (email) DO UPDATE SET
+      role = EXCLUDED.role,
+      doctor_id = EXCLUDED.doctor_id,
+      active = TRUE,
+      updated_at = NOW()`,
+    [
+      staff.id,
+      staff.email,
+      staff.googleSub ?? null,
+      staff.role,
+      staff.doctorId ?? null,
+      staff.active,
+    ],
+  );
+}
+
+async function seedClinicStaff(pool: Pool): Promise<void> {
+  await upsertStaffSeed(pool, adminStaffSeed());
+  const medico = medicoStaffSeedFromEnv();
+  if (medico) await upsertStaffSeed(pool, medico);
+}
+
 export async function ensureSchema(): Promise<void> {
   if (!schemaReady) {
     schemaReady = (async () => {
@@ -354,7 +419,33 @@ export async function ensureSchema(): Promise<void> {
           ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_google_event_id TEXT;
         `);
       }
+      try {
+        const migrateStaff = await readFile(
+          path.join(process.cwd(), "migrations", "004_clinic_staff.sql"),
+          "utf8",
+        );
+        await pool.query(migrateStaff);
+      } catch {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS clinic_staff (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL UNIQUE,
+            google_sub TEXT UNIQUE,
+            role TEXT NOT NULL CHECK (role IN ('admin', 'medico', 'secretaria')),
+            doctor_id TEXT REFERENCES doctors (id),
+            active BOOLEAN NOT NULL DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            CONSTRAINT clinic_staff_medico_doctor
+              CHECK (
+                (role = 'medico' AND doctor_id IS NOT NULL)
+                OR (role <> 'medico' AND doctor_id IS NULL)
+              )
+          );
+        `);
+      }
       await seedDoctor(pool);
+      await seedClinicStaff(pool);
     })();
   }
   await schemaReady;

@@ -5,10 +5,9 @@ import {
   listConfirmedAppointments,
   updateAppointment,
 } from "@/lib/appointments";
+import { cancelAppointmentById } from "@/lib/cancel-appointment";
 import { getDefaultDoctor } from "@/lib/doctors";
 import {
-  removeAppointmentFromDoctorCalendar,
-  removeAppointmentFromPatientCalendar,
   syncAppointmentToDoctorCalendar,
   syncAppointmentToPatientCalendar,
 } from "@/lib/google-calendar";
@@ -48,17 +47,7 @@ export async function PATCH(request: NextRequest, context: Ctx) {
   const patient = await getPatientById(appointment.patientId);
 
   if (parsed.data.action === "cancel") {
-    if (appointment.status === "cancelled") {
-      return NextResponse.json({
-        appointment: publicAppointment(appointment),
-      });
-    }
-    await removeAppointmentFromDoctorCalendar(appointment.googleEventId);
-    await removeAppointmentFromPatientCalendar(appointment, patient);
-    const updated = await updateAppointment(id, {
-      status: "cancelled",
-      patientGoogleEventId: null,
-    });
+    const updated = await cancelAppointmentById(id);
     return NextResponse.json({
       appointment: updated ? publicAppointment(updated) : updated,
       message: "Turno cancelado.",

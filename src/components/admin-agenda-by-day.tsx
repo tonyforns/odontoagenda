@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { Appointment } from "@/lib/types";
 import {
   buildDaySchedule,
@@ -17,13 +17,15 @@ import {
   weekStartFromDate,
 } from "@/lib/agenda";
 import { patientDisplayName } from "@/lib/patient-utils";
+import { CancelAppointmentConfirmDialog } from "@/components/cancel-appointment-confirm-dialog";
 import { MiniMonthCalendar } from "@/components/mini-month-calendar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type Props = {
   appointments: Appointment[];
-  onSelectPatient: (patientId: string) => void;
+  onSelectAppointment: (appointment: Appointment) => void;
+  onCancelAppointment: (appointment: Appointment) => Promise<void>;
   onSelectFreeSlot: (slot: {
     date: string;
     startTime: string;
@@ -33,7 +35,8 @@ type Props = {
 
 export function AdminAgendaByDay({
   appointments,
-  onSelectPatient,
+  onSelectAppointment,
+  onCancelAppointment,
   onSelectFreeSlot,
 }: Props) {
   const [weekStart, setWeekStart] = useState(() =>
@@ -41,6 +44,8 @@ export function AdminAgendaByDay({
   );
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
+  const [cancelPending, startCancel] = useTransition();
   const calendarRef = useRef<HTMLDivElement>(null);
 
   const weekDays = useMemo(
@@ -121,6 +126,19 @@ export function AdminAgendaByDay({
     setCalendarOpen(false);
   }
 
+  function confirmCancel() {
+    if (!cancelTarget) return;
+    const appointment = cancelTarget;
+    startCancel(async () => {
+      try {
+        await onCancelAppointment(appointment);
+        setCancelTarget(null);
+      } catch {
+        // El padre muestra el error; dejamos el modal abierto.
+      }
+    });
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
       <div className="relative flex shrink-0 items-center gap-1">
@@ -134,40 +152,37 @@ export function AdminAgendaByDay({
             setWeekStart((w) => shiftWeek(w, -1));
             setSelectedDate(null);
             setCalendarOpen(false);
+            setCancelTarget(null);
           }}
         >
           <ChevronLeft className="size-4" />
         </Button>
 
-        <div className="flex min-w-0 flex-1 items-center justify-center gap-1">
-          <p className="truncate text-sm font-medium capitalize text-teal-950">
-            {formatWeekRangeLabel(weekStart)}
-          </p>
-          <div className="relative" ref={calendarRef}>
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="ghost"
-              className={cn(
-                "size-8 text-teal-800",
-                calendarOpen && "bg-teal-800/10",
-              )}
-              aria-label="Abrir calendario"
-              aria-expanded={calendarOpen}
-              onClick={() => setCalendarOpen((open) => !open)}
-            >
-              <CalendarDays className="size-4" />
-            </Button>
-            {calendarOpen ? (
-              <div className="absolute top-full left-1/2 z-30 mt-2 -translate-x-1/2 rounded-xl border border-teal-900/10 bg-white p-3 shadow-lg">
-                <MiniMonthCalendar
-                  selectedDate={calendarSelected}
-                  markedDates={markedDates}
-                  onSelect={jumpToDate}
-                />
-              </div>
-            ) : null}
-          </div>
+        <div className="relative flex min-w-0 flex-1 justify-center" ref={calendarRef}>
+          <button
+            type="button"
+            className={cn(
+              "inline-flex max-w-full items-center gap-1.5 rounded-lg px-2 py-1 text-teal-950 transition hover:bg-teal-800/10",
+              calendarOpen && "bg-teal-800/10",
+            )}
+            aria-label="Seleccionar día"
+            aria-expanded={calendarOpen}
+            onClick={() => setCalendarOpen((open) => !open)}
+          >
+            <span className="truncate text-sm font-medium capitalize">
+              {formatWeekRangeLabel(weekStart)}
+            </span>
+            <CalendarDays className="size-4 shrink-0 text-teal-800" />
+          </button>
+          {calendarOpen ? (
+            <div className="absolute top-full left-1/2 z-30 mt-2 -translate-x-1/2 rounded-xl border border-teal-900/10 bg-white p-3 shadow-lg">
+              <MiniMonthCalendar
+                selectedDate={calendarSelected}
+                markedDates={markedDates}
+                onSelect={jumpToDate}
+              />
+            </div>
+          ) : null}
         </div>
 
         <Button
@@ -180,6 +195,7 @@ export function AdminAgendaByDay({
             setWeekStart((w) => shiftWeek(w, 1));
             setSelectedDate(null);
             setCalendarOpen(false);
+            setCancelTarget(null);
           }}
         >
           <ChevronRight className="size-4" />
@@ -267,59 +283,6 @@ export function AdminAgendaByDay({
                           ? "Paciente"
                           : "Disponible";
 
-                    const rowClass = cn(
-                      "group grid h-[4.25rem] w-full grid-cols-[3.4rem_minmax(0,1fr)_4.25rem] items-center gap-2 rounded-xl p-2 text-left transition sm:gap-3 sm:p-2.5",
-                      taken
-                        ? "border border-teal-900/10 bg-white/95 shadow-[0_1px_0_rgba(15,47,44,0.04)] hover:border-teal-800/20 hover:bg-white hover:shadow-sm"
-                        : "border border-dashed border-teal-900/12 bg-white/55 hover:border-teal-700/30 hover:bg-emerald-50/50",
-                    );
-
-                    const body = (
-                      <>
-                        <div
-                          className={cn(
-                            "flex h-full flex-col items-center justify-center rounded-lg px-1 text-center",
-                            taken
-                              ? "bg-teal-800/[0.08]"
-                              : "bg-teal-900/[0.03]",
-                          )}
-                        >
-                          <span className="font-[family-name:var(--font-display)] text-base leading-none tabular-nums text-teal-950">
-                            {slot.startTime}
-                          </span>
-                          <span className="mt-1 text-[0.65rem] tabular-nums text-teal-900/45">
-                            {slot.endTime}
-                          </span>
-                        </div>
-                        <div className="min-w-0">
-                          <p
-                            className={cn(
-                              "truncate text-sm font-medium leading-5",
-                              taken
-                                ? "text-teal-950 transition group-hover:text-teal-800"
-                                : "text-teal-900/45",
-                            )}
-                          >
-                            {title}
-                          </p>
-                          <p className="mt-1 truncate text-[0.65rem] leading-4 text-teal-900/55">
-                            {meta || "\u00A0"}
-                          </p>
-                        </div>
-                        <div className="flex h-full items-center justify-end">
-                          {taken ? (
-                            <span className="text-[0.65rem] text-teal-800/50">
-                              Ver ficha
-                            </span>
-                          ) : (
-                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[0.65rem] font-medium text-emerald-800/80">
-                              Asignar
-                            </span>
-                          )}
-                        </div>
-                      </>
-                    );
-
                     return (
                       <li
                         key={`${slot.startTime}-${slot.status}`}
@@ -332,15 +295,52 @@ export function AdminAgendaByDay({
                           )}
                         />
                         {taken && appointment ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onSelectPatient(appointment.patientId)
-                            }
-                            className={rowClass}
+                          <div
+                            className={cn(
+                              "flex items-stretch gap-1 rounded-xl border border-teal-900/10 bg-white/95 p-1 shadow-[0_1px_0_rgba(15,47,44,0.04)] sm:gap-1.5 sm:p-1.5",
+                            )}
                           >
-                            {body}
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => onSelectAppointment(appointment)}
+                              className="group grid min-w-0 flex-1 grid-cols-[3.4rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg p-1.5 text-left transition hover:bg-teal-50/80 sm:gap-3 sm:p-2"
+                            >
+                              <div className="flex h-full flex-col items-center justify-center rounded-lg bg-teal-800/[0.08] px-1 text-center">
+                                <span className="font-[family-name:var(--font-display)] text-base leading-none tabular-nums text-teal-950">
+                                  {slot.startTime}
+                                </span>
+                                <span className="mt-1 text-[0.65rem] tabular-nums text-teal-900/45">
+                                  {slot.endTime}
+                                </span>
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium leading-5 text-teal-950 transition group-hover:text-teal-800">
+                                  {title}
+                                </p>
+                                <p className="mt-1 truncate text-[0.65rem] leading-4 text-teal-900/55">
+                                  {meta || "\u00A0"}
+                                </p>
+                              </div>
+                              <span className="shrink-0 text-[0.65rem] text-teal-800/50">
+                                Ver ficha
+                              </span>
+                            </button>
+                            <div className="flex shrink-0 items-center px-1">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 border-red-200 px-2 text-[0.65rem] text-red-700 hover:bg-red-50"
+                                disabled={cancelPending}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCancelTarget(appointment);
+                                }}
+                              >
+                                Cancelar
+                              </Button>
+                            </div>
+                          </div>
                         ) : (
                           <button
                             type="button"
@@ -351,9 +351,29 @@ export function AdminAgendaByDay({
                                 endTime: slot.endTime,
                               })
                             }
-                            className={rowClass}
+                            className="group grid h-[4.25rem] w-full grid-cols-[3.4rem_minmax(0,1fr)_4.25rem] items-center gap-2 rounded-xl border border-dashed border-teal-900/12 bg-white/55 p-2 text-left transition hover:border-teal-700/30 hover:bg-emerald-50/50 sm:gap-3 sm:p-2.5"
                           >
-                            {body}
+                            <div className="flex h-full flex-col items-center justify-center rounded-lg bg-teal-900/[0.03] px-1 text-center">
+                              <span className="font-[family-name:var(--font-display)] text-base leading-none tabular-nums text-teal-950">
+                                {slot.startTime}
+                              </span>
+                              <span className="mt-1 text-[0.65rem] tabular-nums text-teal-900/45">
+                                {slot.endTime}
+                              </span>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium leading-5 text-teal-900/45">
+                                {title}
+                              </p>
+                              <p className="mt-1 truncate text-[0.65rem] leading-4 text-teal-900/55">
+                                {meta || "\u00A0"}
+                              </p>
+                            </div>
+                            <div className="flex h-full items-center justify-end">
+                              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[0.65rem] font-medium text-emerald-800/80">
+                                Asignar
+                              </span>
+                            </div>
                           </button>
                         )}
                       </li>
@@ -365,6 +385,16 @@ export function AdminAgendaByDay({
           </div>
         </section>
       ) : null}
+
+      <CancelAppointmentConfirmDialog
+        appointment={cancelTarget}
+        open={Boolean(cancelTarget)}
+        pending={cancelPending}
+        onOpenChange={(open) => {
+          if (!open && !cancelPending) setCancelTarget(null);
+        }}
+        onConfirm={confirmCancel}
+      />
     </div>
   );
 }

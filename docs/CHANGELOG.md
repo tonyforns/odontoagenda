@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-11-12 (seed pacientes en Postgres)
+
+- `pnpm seed:volume` usa `DATABASE_URL` si existe (pacientes/turnos demo); si no, sigue en `.data/store.json`.
+
+## 2026-11-12 (pacientes paginados)
+
+- Listado de Pacientes en consultorio: paginación de 10 (sin scroll infinito).
+
+## 2026-11-12 (ficha desde turno vs pacientes)
+
+- Desde **Agenda/turno**: ficha solo lectura + **Cancelar turno**.
+- Desde **Pacientes**: botón **Editar** (email no editable).
+- `PATCH /api/admin/appointments/[id]` con `{ action: "cancel" }`.
+
+## 2026-11-12 (editar ficha paciente en consultorio)
+
+- Ficha editable desde Pacientes; `PATCH /api/admin/patients/[id]`.
+
+## 2026-11-12 (admin: editar rol, no desactivar admin)
+
+- En `/admin` se puede cambiar el rol de cada miembro desde la tabla.
+- No se puede desactivar a un administrador (UI + API).
+
+## 2026-11-12 (rutas consultorio / admin)
+
+- Agenda del profesional: `/consultorio` (antes `/admin`).
+- Nuevo `/admin`: gestión de personal y roles (solo rol `admin`).
+- APIs `GET/POST /api/admin/staff` y `PATCH /api/admin/staff/[id]`.
+- Nav: Consultorio para staff; Admin solo para administradores.
+
+## 2026-11-12 (roles + sin PIN)
+
+- Tabla `clinic_staff` (`migrations/004` + `ensureSchema`): roles `admin` / `medico` / `secretaria`.
+- Seed admin: `iaforns@gmail.com`; médico opcional vía `STAFF_MEDICO_EMAIL`.
+- `/admin` y APIs admin por sesión Gmail + rol staff; eliminado flujo PIN / `x-doctor-pin`.
+- Sesión Auth.js expone `role` (+ `doctorId` si médico); nav Consultorio solo para staff.
+- Regla agentes: `.cursor/rules/schema-db-sync.mdc` (migraciones + ensureSchema + tipos).
+
 ## 2026-11-12 (mock retirado)
 
 - Eliminado modo demo en memoria, ficha auto-mock y banner de Reservar.

@@ -3,8 +3,13 @@ import { promises as fs } from "fs";
 import path from "path";
 import { DEFAULT_DOCTOR_SEED, clinic } from "@/lib/clinic";
 import { endTimeFor } from "@/lib/slots";
+import {
+  adminStaffSeed,
+  medicoStaffSeedFromEnv,
+} from "@/lib/staff-seed";
 import type {
   Appointment,
+  ClinicStaff,
   CreateAppointmentInput,
   Doctor,
   Patient,
@@ -30,6 +35,7 @@ type StoreShape = {
   doctors: Doctor[];
   patients: Patient[];
   appointments: Appointment[];
+  clinicStaff: ClinicStaff[];
 };
 
 function nowIso() {
@@ -41,9 +47,36 @@ function seedDoctor(): Doctor {
   return { ...DEFAULT_DOCTOR_SEED, createdAt: now, updatedAt: now };
 }
 
+function seedClinicStaff(): ClinicStaff[] {
+  const staff = [adminStaffSeed()];
+  const medico = medicoStaffSeedFromEnv();
+  if (medico) staff.push(medico);
+  return staff;
+}
+
 /** Fallback local sin DATABASE_URL. Para demos densas: `pnpm seed:volume`. */
 function seedStore(): StoreShape {
-  return { doctors: [seedDoctor()], patients: [], appointments: [] };
+  return {
+    doctors: [seedDoctor()],
+    patients: [],
+    appointments: [],
+    clinicStaff: seedClinicStaff(),
+  };
+}
+
+function ensureStaffSeeded(store: StoreShape): void {
+  if (!store.clinicStaff) store.clinicStaff = [];
+  const admin = adminStaffSeed();
+  if (!store.clinicStaff.some((s) => s.email === admin.email)) {
+    store.clinicStaff.push(admin);
+  }
+  const medico = medicoStaffSeedFromEnv();
+  if (
+    medico &&
+    !store.clinicStaff.some((s) => s.email === medico.email)
+  ) {
+    store.clinicStaff.push(medico);
+  }
 }
 
 function withJoins(store: StoreShape, appointment: Appointment): Appointment {
@@ -86,6 +119,8 @@ async function readStore(): Promise<StoreShape> {
   }
   if (!parsed.patients) parsed.patients = [];
   if (!parsed.appointments) parsed.appointments = [];
+  if (!parsed.clinicStaff) parsed.clinicStaff = [];
+  ensureStaffSeeded(parsed);
   return parsed;
 }
 
@@ -102,6 +137,109 @@ export async function getDoctorById(id: string): Promise<Doctor> {
   store.doctors.push(doctor);
   await writeStore(store);
   return doctor;
+}
+
+export async function findActiveStaff(opts: {
+  email?: string | null;
+  googleSub?: string | null;
+}): Promise<ClinicStaff | null> {
+  const store = await readStore();
+  ensureStaffSeeded(store);
+  if (opts.googleSub) {
+    const bySub = store.clinicStaff.find(
+      (s) => s.active && s.googleSub === opts.googleSub,
+    );
+    if (bySub) return bySub;
+  }
+  if (opts.email) {
+    const email = opts.email.trim().toLowerCase();
+    const byEmail = store.clinicStaff.find(
+      (s) => s.active && s.email === email,
+    );
+    if (byEmail) return byEmail;
+  }
+  return null;
+}
+
+export async function linkStaffGoogleSub(input: {
+  email: string;
+  googleSub: string;
+}): Promise<ClinicStaff | null> {
+  const store = await readStore();
+  ensureStaffSeeded(store);
+  const email = input.email.trim().toLowerCase();
+  const staff = store.clinicStaff.find((s) => s.active && s.email === email);
+  if (!staff) return null;
+  staff.googleSub = input.googleSub;
+  staff.updatedAt = nowIso();
+  await writeStore(store);
+  return staff;
+}
+
+export async function listStaff(): Promise<ClinicStaff[]> {
+  const store = await readStore();
+  ensureStaffSeeded(store);
+  await writeStore(store);
+  return [...store.clinicStaff].sort((a, b) => a.email.localeCompare(b.email));
+}
+
+export async function upsertStaffMember(input: {
+  email: string;
+  role: ClinicStaff["role"];
+  doctorId: string | null;
+}): Promise<ClinicStaff> {
+  const store = await readStore();
+  ensureStaffSeeded(store);
+  const email = input.email.trim().toLowerCase();
+  const existing = store.clinicStaff.find((s) => s.email === email);
+  const now = nowIso();
+  if (existing) {
+    existing.role = input.role;
+    existing.doctorId = input.doctorId;
+    existing.active = true;
+    existing.updatedAt = now;
+    await writeStore(store);
+    return existing;
+  }
+  const staff: ClinicStaff = {
+    id: randomUUID(),
+    email,
+    googleSub: null,
+    role: input.role,
+    doctorId: input.doctorId,
+    active: true,
+    createdAt: now,
+    updatedAt: now,
+  };
+  store.clinicStaff.push(staff);
+  await writeStore(store);
+  return staff;
+}
+
+export async function getStaffById(id: string): Promise<ClinicStaff | null> {
+  const store = await readStore();
+  ensureStaffSeeded(store);
+  return store.clinicStaff.find((s) => s.id === id) ?? null;
+}
+
+export async function patchStaffMember(
+  id: string,
+  patch: {
+    role: ClinicStaff["role"];
+    doctorId: string | null;
+    active: boolean;
+  },
+): Promise<ClinicStaff | null> {
+  const store = await readStore();
+  ensureStaffSeeded(store);
+  const staff = store.clinicStaff.find((s) => s.id === id);
+  if (!staff) return null;
+  staff.role = patch.role;
+  staff.doctorId = patch.doctorId;
+  staff.active = patch.active;
+  staff.updatedAt = nowIso();
+  await writeStore(store);
+  return staff;
 }
 
 export async function getPatientByGoogleSub(
@@ -213,6 +351,15 @@ export async function updatePatientProfile(
   const store = await readStore();
   const patient = store.patients.find((p) => p.googleSub === googleSub);
   if (!patient) return undefined;
+  applyPatientProfile(patient, profile);
+  await writeStore(store);
+  return patient;
+}
+
+function applyPatientProfile(
+  patient: Patient,
+  profile: PatientProfileInput,
+): void {
   patient.firstName = profile.firstName.trim();
   patient.lastName = profile.lastName.trim();
   patient.dni = profile.dni;
@@ -221,6 +368,23 @@ export async function updatePatientProfile(
   patient.obraSocial = profile.obraSocial.trim();
   patient.phone = profile.phone.trim();
   patient.updatedAt = nowIso();
+}
+
+/** Actualiza ficha por id. No modifica email. */
+export async function updatePatientById(
+  id: string,
+  profile: PatientProfileInput,
+): Promise<Patient | undefined> {
+  const store = await readStore();
+  const patient = store.patients.find((p) => p.id === id);
+  if (!patient) return undefined;
+  const dniTaken = store.patients.some(
+    (p) => p.id !== id && p.dni === profile.dni,
+  );
+  if (dniTaken) {
+    throw new Error("DNI_TAKEN");
+  }
+  applyPatientProfile(patient, profile);
   await writeStore(store);
   return patient;
 }

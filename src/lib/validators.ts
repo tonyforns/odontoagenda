@@ -64,3 +64,23 @@ export const manageSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   startTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
 });
+
+export const staffUpsertSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("Email inválido")
+    .max(120),
+  role: z.enum(["admin", "medico", "secretaria"]),
+});
+
+export const staffPatchSchema = z
+  .object({
+    active: z.boolean().optional(),
+    role: z.enum(["admin", "medico", "secretaria"]).optional(),
+  })
+  .refine(
+    (data) => data.active !== undefined || data.role !== undefined,
+    "Nada para actualizar.",
+  );

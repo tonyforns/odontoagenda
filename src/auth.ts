@@ -2,6 +2,11 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { rememberAuthError } from "@/lib/auth-debug";
 import { upsertFromGoogleSession } from "@/lib/patients";
+import {
+  linkStaffGoogleSub,
+  resolveAppRole,
+} from "@/lib/staff";
+import type { AppRole } from "@/lib/types";
 
 declare module "next-auth" {
   interface Session {
@@ -11,7 +16,19 @@ declare module "next-auth" {
       image?: string | null;
       googleSub?: string;
       hasCalendarAccess?: boolean;
+      role?: AppRole;
+      doctorId?: string | null;
     };
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    googleSub?: string;
+    googleRefreshToken?: string;
+    hasCalendarAccess?: boolean;
+    role?: AppRole;
+    doctorId?: string | null;
   }
 }
 
@@ -92,6 +109,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.hasCalendarAccess = true;
         }
       }
+
+      const email =
+        typeof token.email === "string" ? token.email : undefined;
+      const googleSub =
+        (token.googleSub as string | undefined) ||
+        (token.sub as string | undefined);
+
+      try {
+        const { role, staff } = await resolveAppRole({ email, googleSub });
+        token.role = role;
+        token.doctorId = staff?.doctorId ?? null;
+      } catch (error) {
+        console.error("[auth] resolveAppRole failed", error);
+        token.role = token.role ?? "paciente";
+      }
+
       return token;
     },
     async session({ session, token }) {
@@ -100,6 +133,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           (token.googleSub as string | undefined) ||
           (token.sub as string | undefined);
         session.user.hasCalendarAccess = Boolean(token.hasCalendarAccess);
+        session.user.role = (token.role as AppRole | undefined) ?? "paciente";
+        session.user.doctorId = token.doctorId ?? null;
       }
       return session;
     },
@@ -122,6 +157,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
       } catch (error) {
         console.error("[auth] upsertFromGoogleSession failed", error);
+      }
+
+      try {
+        await linkStaffGoogleSub({ email, googleSub });
+      } catch (error) {
+        console.error("[auth] linkStaffGoogleSub failed", error);
       }
     },
   },

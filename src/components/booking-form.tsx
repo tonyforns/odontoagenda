@@ -62,7 +62,6 @@ export function BookingForm() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [step, setStep] = useState<Step>("form");
   const [created, setCreated] = useState<Appointment | null>(null);
-  const [calendarMode, setCalendarMode] = useState<"google" | "mock">("mock");
   const [patientCalendarSynced, setPatientCalendarSynced] = useState(false);
   const [pending, startTransition] = useTransition();
   const [oauthCallbackUrl, setOauthCallbackUrl] = useState(
@@ -143,7 +142,6 @@ export function BookingForm() {
         return;
       }
       setCreated(data.appointment);
-      setCalendarMode(data.calendar?.mode ?? data.appointment.calendarMode);
       setPatientCalendarSynced(Boolean(data.patientCalendarSynced));
       setStep("success");
     });
@@ -156,89 +154,91 @@ export function BookingForm() {
         ? `${patient.firstName} ${patient.lastName}`.trim()
         : "";
     return (
-      <div className="space-y-6 animate-rise">
-        <div className="flex items-start gap-4">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-teal-800/10 text-teal-800">
-            <CheckCircle2 className="size-6" />
+      <div className="flex h-full min-h-0 animate-rise flex-col items-center justify-center px-2 py-4">
+        <div className="mx-auto w-full max-w-lg space-y-6 text-center">
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-teal-800/10 text-teal-800">
+              <CheckCircle2 className="size-6" />
+            </div>
+            <div>
+              <h2 className="font-[family-name:var(--font-display)] text-3xl tracking-tight text-teal-950">
+                Turno confirmado
+              </h2>
+              <p className="mt-2 text-teal-900/75 leading-relaxed">
+                <span className="capitalize">{formatLongDate(created.date)}</span>
+                {" · "}
+                {created.startTime} hs ({created.durationMinutes} min)
+                <br />
+                con {clinic.doctorName}
+                {name ? ` · ${name}` : ""}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="font-[family-name:var(--font-display)] text-3xl tracking-tight text-teal-950">
-              Turno confirmado
-            </h2>
-            <p className="mt-2 max-w-md text-teal-900/75 leading-relaxed">
-              <span className="capitalize">{formatLongDate(created.date)}</span>
-              {" · "}
-              {created.startTime} hs ({created.durationMinutes} min)
-              <br />
-              con {clinic.doctorName}
-              {name ? ` · ${name}` : ""}
+
+          <div className="rounded-2xl border border-teal-900/8 bg-teal-50/50 p-5 text-left sm:text-center">
+            <p className="text-sm text-teal-900/70">
+              {patientCalendarSynced ? (
+                <>
+                  El turno se agregó automáticamente a{" "}
+                  <span className="font-medium text-teal-950">
+                    tu Google Calendar
+                  </span>
+                  .
+                </>
+              ) : (
+                <>
+                  Para tenerlo a mano, sumalo a{" "}
+                  <span className="font-medium text-teal-950">tu calendario</span>{" "}
+                  con un clic.
+                </>
+              )}
             </p>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-teal-900/8 bg-teal-50/50 p-5">
-          <p className="text-sm text-teal-900/70">
-            {patientCalendarSynced ? (
-              <>
-                El turno se agregó automáticamente a{" "}
-                <span className="font-medium text-teal-950">tu Google Calendar</span>.
-              </>
+            {!patientCalendarSynced ? (
+              <div className="mt-4 flex flex-col items-stretch justify-center gap-2 sm:flex-row sm:items-center">
+                <Button asChild className="bg-teal-800 hover:bg-teal-900">
+                  <a
+                    href={googleCalendarAddUrl(created)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <CalendarPlus className="size-4" />
+                    Agregar a mi Google Calendar
+                  </a>
+                </Button>
+                <Button asChild variant="outline">
+                  <a href={`/api/appointments/${created.id}/ics`}>
+                    Descargar .ics
+                  </a>
+                </Button>
+              </div>
             ) : (
-              <>
-                No se pudo agregar solo a tu Calendar. Podés sumarlo manualmente
-                abajo
-                {calendarMode === "mock"
-                  ? " (el calendario del consultorio está en modo demo)"
-                  : ""}
-                .
-              </>
+              <div className="mt-4 flex justify-center">
+                <Button asChild variant="outline" size="sm">
+                  <a href={`/api/appointments/${created.id}/ics`}>
+                    Descargar .ics
+                  </a>
+                </Button>
+              </div>
             )}
-          </p>
-          {!patientCalendarSynced ? (
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-              <Button asChild className="bg-teal-800 hover:bg-teal-900">
-                <a
-                  href={googleCalendarAddUrl(created)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <CalendarPlus className="size-4" />
-                  Agregar a mi Google Calendar
-                </a>
-              </Button>
-              <Button asChild variant="outline">
-                <a href={`/api/appointments/${created.id}/ics`}>
-                  Descargar .ics
-                </a>
-              </Button>
-            </div>
-          ) : (
-            <div className="mt-4">
-              <Button asChild variant="outline" size="sm">
-                <a href={`/api/appointments/${created.id}/ics`}>
-                  Descargar .ics
-                </a>
-              </Button>
-            </div>
-          )}
-        </div>
+          </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="secondary">
-            <Link href="/mis-turnos">Gestionar / cancelar</Link>
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setStep("form");
-              setCreated(null);
-              setDate("");
-              setStartTime("");
-              setSlots([]);
-            }}
-          >
-            Reservar otro
-          </Button>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Button asChild variant="secondary">
+              <Link href="/mis-turnos">Gestionar / cancelar</Link>
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setStep("form");
+                setCreated(null);
+                setDate("");
+                setStartTime("");
+                setSlots([]);
+              }}
+            >
+              Reservar otro
+            </Button>
+          </div>
         </div>
       </div>
     );

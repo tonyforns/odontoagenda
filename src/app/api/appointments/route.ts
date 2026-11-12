@@ -181,9 +181,7 @@ export async function POST(request: NextRequest) {
       patientCalendarSynced,
       message: patientCalendarSynced
         ? "Turno reservado y agregado a tu Google Calendar."
-        : appointment.calendarMode === "google"
-          ? "Turno reservado. No se pudo agregar automáticamente a tu Calendar (volvé a iniciar sesión con Gmail para otorgar permiso)."
-          : "Turno reservado.",
+        : "Turno reservado. Podés sumarlo a tu calendario para tenerlo a mano.",
     },
     { status: 201 },
   );

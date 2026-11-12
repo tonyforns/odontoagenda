@@ -34,6 +34,7 @@ async function main() {
     const files = [
       "migrations/002_doctors_patients_appointments.sql",
       "migrations/003_patient_calendar.sql",
+      "migrations/004_clinic_staff.sql",
     ];
     for (const file of files) {
       const sql = await readFile(path.join(process.cwd(), file), "utf8");
