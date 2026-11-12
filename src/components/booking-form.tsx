@@ -11,6 +11,7 @@ import {
   LogIn,
 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import { useEffect, useState, useTransition } from "react";
 import { AvailabilityCalendar } from "@/components/availability-calendar";
@@ -23,6 +24,17 @@ import { cn } from "@/lib/utils";
 
 type Step = "form" | "success";
 
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  Configuration:
+    "Falta AUTH_SECRET o las credenciales de Google en Vercel. Redeploy después de setearlas.",
+  AccessDenied: "Google rechazó el acceso. Probá con otra cuenta o como test user.",
+  Verification: "No se pudo verificar el login. Probá de nuevo.",
+  OAuthCallback:
+    "Falló el callback de Google (redirect URI o Client Secret). Revisá Google Cloud + AUTH_URL.",
+  OAuthAccountNotLinked: "Esa cuenta ya está vinculada de otra forma.",
+  Default: "No se pudo completar el login con Gmail.",
+};
+
 function formatLongDate(date: string) {
   return format(parse(date, "yyyy-MM-dd", new Date()), "EEEE d 'de' MMMM", {
     locale: es,
@@ -30,7 +42,9 @@ function formatLongDate(date: string) {
 }
 
 export function BookingForm() {
-  const { data: session, status } = useSession();
+  const searchParams = useSearchParams();
+  const { data: session, status, update } = useSession();
+  const authError = searchParams.get("error");
   const [googleConfigured, setGoogleConfigured] = useState<boolean | null>(
     null,
   );
@@ -64,6 +78,12 @@ export function BookingForm() {
         }
       })
       .catch(() => setGoogleConfigured(false));
+  }, []);
+
+  // Tras volver de Google, refrescar sesión una vez (evita UI stale).
+  useEffect(() => {
+    void update();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al montar
   }, []);
 
   useEffect(() => {
@@ -245,12 +265,29 @@ export function BookingForm() {
             Asociamos el turno a tu cuenta para cancelar o reprogramar después.
           </p>
         </div>
+        {authError ? (
+          <div className="w-full rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-left text-sm text-rose-950">
+            <p className="font-medium">No se pudo iniciar sesión</p>
+            <p className="mt-1 text-xs leading-relaxed opacity-90">
+              {AUTH_ERROR_MESSAGES[authError] ??
+                AUTH_ERROR_MESSAGES.Default}
+            </p>
+            <code className="mt-2 block break-all text-[0.65rem] opacity-70">
+              error={authError}
+            </code>
+          </div>
+        ) : null}
         {googleConfigured ? (
           <Button
             type="button"
             size="lg"
             className="bg-teal-800 hover:bg-teal-900"
-            onClick={() => signIn("google", { callbackUrl: "/reservar" })}
+            onClick={() =>
+              signIn("google", {
+                callbackUrl: "/reservar",
+                redirect: true,
+              })
+            }
           >
             Continuar con Gmail
           </Button>

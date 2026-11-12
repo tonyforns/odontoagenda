@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-12 (login Gmail estable)
+
+- En mock: login Google solo con `openid email profile` (sin Calendar).
+- Errores OAuth visibles en `/reservar?error=…`; issuer/wellKnown explícitos.
+
 ## 2026-11-12 (auth Vercel)
 
 - Auth.js: `secret` explícito + `signIn` no rompe si falla el store mock.

@@ -19,5 +19,8 @@ export async function GET(request: Request) {
     callbackUrl: googleOAuthCallbackUrl(origin),
     authUrl: origin,
     mockBooking: isMockBookingMode(),
+    hasAuthSecret: Boolean(
+      process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+    ),
   });
 }

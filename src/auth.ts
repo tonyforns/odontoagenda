@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { upsertFromGoogleSession } from "@/lib/patients";
+import { isMockBookingMode } from "@/lib/mock-mode";
 
 declare module "next-auth" {
   interface Session {
@@ -26,31 +27,35 @@ const googleClientId =
 const googleClientSecret =
   process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET || "";
 
+/** En mock no pedimos Calendar: el consent es más simple y el login más estable. */
+function googleScopes() {
+  const base = ["openid", "email", "profile"];
+  if (!isMockBookingMode()) {
+    base.push("https://www.googleapis.com/auth/calendar.events");
+  }
+  return base.join(" ");
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  // Explícito: en Vercel sin AUTH_SECRET Auth.js responde "server configuration".
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   trustHost: true,
+  session: { strategy: "jwt" },
   providers: [
     Google({
       clientId: googleClientId,
       clientSecret: googleClientSecret,
-      // Evita el discovery OIDC: Google declara iss supported pero a veces
-      // no lo manda en el callback → oauth4webapi tira "iss missing".
-      token: "https://oauth2.googleapis.com/token",
-      userinfo: "https://openidconnect.googleapis.com/v1/userinfo",
+      issuer: "https://accounts.google.com",
       authorization: {
         params: {
-          scope: [
-            "openid",
-            "email",
-            "profile",
-            "https://www.googleapis.com/auth/calendar.events",
-          ].join(" "),
+          scope: googleScopes(),
           access_type: "offline",
           prompt: "consent",
           response_type: "code",
         },
       },
+      // Sin discovery OIDC: Google a veces no manda `iss` → "iss missing".
+      token: "https://oauth2.googleapis.com/token",
+      userinfo: "https://openidconnect.googleapis.com/v1/userinfo",
     }),
   ],
   pages: {
@@ -58,6 +63,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: "/reservar",
   },
   callbacks: {
+    async signIn({ account }) {
+      // Solo Google; si el proveedor falla, Auth.js ya corta antes.
+      return account?.provider === "google";
+    },
     async jwt({ token, account, profile }) {
       if (account?.provider === "google") {
         token.googleSub =
@@ -93,7 +102,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const email = user.email?.trim().toLowerCase();
       if (!googleSub || !email) return;
 
-      // No tumbar el OAuth si el store mock falla en cold start.
       try {
         await upsertFromGoogleSession({
           googleSub,
@@ -104,6 +112,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       } catch (error) {
         console.error("[auth] upsertFromGoogleSession failed", error);
       }
+    },
+  },
+  logger: {
+    error(error) {
+      console.error("[auth][error]", error);
     },
   },
 });
