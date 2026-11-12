@@ -1,8 +1,9 @@
 # Changelog
 
-## 2026-03-11 (Vercel / pnpm)
+## 2026-03-11 (Vercel build)
 
-- `pnpm-workspace.yaml`: `allowBuilds.esbuild: true` para que `pnpm install` no falle en Vercel.
+- `allowBuilds.esbuild: true` para `pnpm install` en Vercel.
+- `scripts/` excluido del `tsconfig` (evita TS5097 en `next build`).
 
 ## 2026-03-11 (header)
 

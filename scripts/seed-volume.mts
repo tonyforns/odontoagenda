@@ -4,7 +4,7 @@ import {
   buildVolumeDemoStore,
   isDemoAppointmentId,
   isDemoPatientId,
-} from "../src/lib/demo-seed.ts";
+} from "../src/lib/demo-seed";
 
 const DATA_FILE = path.join(process.cwd(), ".data", "store.json");
 
