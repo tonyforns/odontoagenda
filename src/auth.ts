@@ -21,15 +21,19 @@ export function isGoogleAuthConfigured() {
   );
 }
 
+const googleClientId =
+  process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID || "";
+const googleClientSecret =
+  process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET || "";
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Explícito: en Vercel sin AUTH_SECRET Auth.js responde "server configuration".
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+  trustHost: true,
   providers: [
     Google({
-      clientId:
-        process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret:
-        process.env.AUTH_GOOGLE_SECRET ||
-        process.env.GOOGLE_CLIENT_SECRET ||
-        "",
+      clientId: googleClientId,
+      clientSecret: googleClientSecret,
       // Evita el discovery OIDC: Google declara iss supported pero a veces
       // no lo manda en el callback → oauth4webapi tira "iss missing".
       token: "https://oauth2.googleapis.com/token",
@@ -49,9 +53,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-  trustHost: true,
   pages: {
     signIn: "/reservar",
+    error: "/reservar",
   },
   callbacks: {
     async jwt({ token, account, profile }) {
@@ -89,12 +93,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const email = user.email?.trim().toLowerCase();
       if (!googleSub || !email) return;
 
-      await upsertFromGoogleSession({
-        googleSub,
-        email,
-        name: user.name,
-        refreshToken: account.refresh_token ?? undefined,
-      });
+      // No tumbar el OAuth si el store mock falla en cold start.
+      try {
+        await upsertFromGoogleSession({
+          googleSub,
+          email,
+          name: user.name,
+          refreshToken: account.refresh_token ?? undefined,
+        });
+      } catch (error) {
+        console.error("[auth] upsertFromGoogleSession failed", error);
+      }
     },
   },
 });

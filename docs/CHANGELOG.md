@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-12 (auth Vercel)
+
+- Auth.js: `secret` explícito + `signIn` no rompe si falla el store mock.
+- Error OAuth redirige a `/reservar` (no página negra de Auth.js).
+
 ## 2026-11-11 (mock sacar turno)
 
 - Sin DB: login Gmail real; ficha se completa sola (demo) y la reserva usa Calendar mock.
