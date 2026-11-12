@@ -5,15 +5,15 @@ import {
   APPOINTMENT_SELECT,
   ensureSchema,
   getPool,
-  hasDatabaseUrl,
   rowToAppointment,
+  useDatabase,
 } from "@/lib/db";
 import { endTimeFor } from "@/lib/slots";
 import type { Appointment, CreateAppointmentInput } from "@/lib/types";
 import * as fileStore from "@/lib/store";
 
 export async function listAppointments(): Promise<Appointment[]> {
-  if (!hasDatabaseUrl()) return fileStore.listAppointments();
+  if (!(await useDatabase())) return fileStore.listAppointments();
   await ensureSchema();
   const { rows } = await getPool().query(
     `${APPOINTMENT_SELECT} ORDER BY a.date DESC, a.start_time DESC`,
@@ -24,7 +24,9 @@ export async function listAppointments(): Promise<Appointment[]> {
 export async function listConfirmedAppointments(
   doctorId: string = clinic.defaultDoctorId,
 ): Promise<Appointment[]> {
-  if (!hasDatabaseUrl()) return fileStore.listConfirmedAppointments(doctorId);
+  if (!(await useDatabase())) {
+    return fileStore.listConfirmedAppointments(doctorId);
+  }
   await ensureSchema();
   const { rows } = await getPool().query(
     `${APPOINTMENT_SELECT}
@@ -36,7 +38,7 @@ export async function listConfirmedAppointments(
 }
 
 export async function findById(id: string): Promise<Appointment | undefined> {
-  if (!hasDatabaseUrl()) return fileStore.findById(id);
+  if (!(await useDatabase())) return fileStore.findById(id);
   await ensureSchema();
   const { rows } = await getPool().query(
     `${APPOINTMENT_SELECT} WHERE a.id = $1`,
@@ -48,7 +50,7 @@ export async function findById(id: string): Promise<Appointment | undefined> {
 export async function findByPatientId(
   patientId: string,
 ): Promise<Appointment[]> {
-  if (!hasDatabaseUrl()) return fileStore.findByPatientId(patientId);
+  if (!(await useDatabase())) return fileStore.findByPatientId(patientId);
   await ensureSchema();
   const { rows } = await getPool().query(
     `${APPOINTMENT_SELECT}
@@ -64,7 +66,7 @@ export async function findByDniAndBirth(
   dni: string,
   birthDate: string,
 ): Promise<Appointment[]> {
-  if (!hasDatabaseUrl()) {
+  if (!(await useDatabase())) {
     const all = await fileStore.listAppointments();
     return all.filter(
       (a) => a.patient?.dni === dni && a.patient?.birthDate === birthDate,
@@ -86,7 +88,7 @@ export async function isSlotTaken(
   doctorId: string = clinic.defaultDoctorId,
   excludeId?: string,
 ): Promise<boolean> {
-  if (!hasDatabaseUrl()) {
+  if (!(await useDatabase())) {
     return fileStore.isSlotTaken(date, startTime, doctorId, excludeId);
   }
   await ensureSchema();
@@ -103,7 +105,7 @@ export async function isSlotTaken(
 export async function createAppointment(
   input: CreateAppointmentInput,
 ): Promise<Appointment> {
-  if (!hasDatabaseUrl()) return fileStore.createAppointment(input);
+  if (!(await useDatabase())) return fileStore.createAppointment(input);
 
   await ensureSchema();
   const doctor = await getDoctorById(input.doctorId);
@@ -157,7 +159,7 @@ export async function updateAppointment(
   id: string,
   patch: Partial<Appointment>,
 ): Promise<Appointment | undefined> {
-  if (!hasDatabaseUrl()) return fileStore.updateAppointment(id, patch);
+  if (!(await useDatabase())) return fileStore.updateAppointment(id, patch);
 
   const current = await findById(id);
   if (!current) return undefined;

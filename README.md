@@ -60,6 +60,8 @@ Configurá en el hosting / Cursor Secrets:
 - `GOOGLE_REFRESH_TOKEN` (calendario del doctor)
 - `GOOGLE_CALENDAR_ID` (opcional, default `primary`)
 - `DOCTOR_PIN`
+- `DATABASE_URL` (Postgres; sin esto o si falla la conexión → mock en memoria con seed volume)
+- En Vercel sin DB: mock automático (`VERCEL=1`); opcional `ODONTO_MEMORY_STORE=1` en local
 
 Redirect URI de login paciente: `{AUTH_URL}/api/auth/callback/google`  
 (en local: `http://localhost:3847/api/auth/callback/google`).

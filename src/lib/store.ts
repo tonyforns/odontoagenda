@@ -33,6 +33,11 @@ type StoreShape = {
   appointments: Appointment[];
 };
 
+declare global {
+  // eslint-disable-next-line no-var
+  var __odontoMemStore: StoreShape | undefined;
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -43,8 +48,32 @@ function seedDoctor(): Doctor {
 }
 
 function seedStore(): StoreShape {
-  // Volume demo for empty local stores; re-seed with `pnpm seed:volume`.
+  // Volume demo for empty local stores / Vercel mock; re-seed with `pnpm seed:volume`.
   return buildVolumeDemoStore();
+}
+
+/** Vercel (u ODONTO_MEMORY_STORE): mock en memoria con el seed volume. */
+export function preferMemoryStore(): boolean {
+  const flag = process.env.ODONTO_MEMORY_STORE;
+  if (flag === "1" || flag === "true") return true;
+  if (flag === "0" || flag === "false") return false;
+  return process.env.VERCEL === "1";
+}
+
+function getMemoryStore(): StoreShape {
+  if (!globalThis.__odontoMemStore) {
+    globalThis.__odontoMemStore = seedStore();
+  }
+  return globalThis.__odontoMemStore;
+}
+
+function setMemoryStore(store: StoreShape): void {
+  globalThis.__odontoMemStore = store;
+}
+
+/** Solo tests. */
+export function resetMemoryStoreForTests(): void {
+  globalThis.__odontoMemStore = undefined;
 }
 
 function withJoins(store: StoreShape, appointment: Appointment): Appointment {
@@ -80,20 +109,36 @@ async function ensureFile(): Promise<void> {
 }
 
 async function readStore(): Promise<StoreShape> {
-  await ensureFile();
-  const raw = await fs.readFile(DATA_FILE, "utf8");
-  const parsed = JSON.parse(raw) as StoreShape;
-  if (!parsed.doctors?.length) {
-    parsed.doctors = [seedDoctor()];
+  if (preferMemoryStore()) {
+    return getMemoryStore();
   }
-  if (!parsed.patients) parsed.patients = [];
-  if (!parsed.appointments) parsed.appointments = [];
-  return parsed;
+  try {
+    await ensureFile();
+    const raw = await fs.readFile(DATA_FILE, "utf8");
+    const parsed = JSON.parse(raw) as StoreShape;
+    if (!parsed.doctors?.length) {
+      parsed.doctors = [seedDoctor()];
+    }
+    if (!parsed.patients) parsed.patients = [];
+    if (!parsed.appointments) parsed.appointments = [];
+    return parsed;
+  } catch {
+    // Sin disco escribible (p. ej. runtime restringido): mock volume en memoria.
+    return getMemoryStore();
+  }
 }
 
 async function writeStore(store: StoreShape): Promise<void> {
-  await ensureFile();
-  await fs.writeFile(DATA_FILE, JSON.stringify(store, null, 2), "utf8");
+  if (preferMemoryStore()) {
+    setMemoryStore(store);
+    return;
+  }
+  try {
+    await ensureFile();
+    await fs.writeFile(DATA_FILE, JSON.stringify(store, null, 2), "utf8");
+  } catch {
+    setMemoryStore(store);
+  }
 }
 
 export async function getDoctorById(id: string): Promise<Doctor> {

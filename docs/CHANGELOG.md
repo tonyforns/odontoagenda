@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-11 (mock sin DB)
+
+- Sin `DATABASE_URL` o si Postgres no conecta: usa mock en memoria con el seed volume (pacientes/turnos demo).
+- En Vercel el store es siempre memoria (el JSON local no persiste ahí).
+
 ## 2026-03-11 (Vercel build)
 
 - `allowBuilds.esbuild: true` para `pnpm install` en Vercel.

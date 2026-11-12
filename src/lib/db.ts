@@ -13,6 +13,30 @@ export function hasDatabaseUrl(): boolean {
   return Boolean(process.env.DATABASE_URL);
 }
 
+/** Cached probe: URL presente y schema/conexión OK. Si falla → mock store. */
+let databaseAvailable: boolean | null = null;
+let schemaReady: Promise<void> | null = null;
+
+export async function useDatabase(): Promise<boolean> {
+  if (!hasDatabaseUrl()) return false;
+  if (databaseAvailable !== null) return databaseAvailable;
+  try {
+    await ensureSchema();
+    await getPool().query("SELECT 1");
+    databaseAvailable = true;
+  } catch {
+    databaseAvailable = false;
+    schemaReady = null;
+  }
+  return databaseAvailable;
+}
+
+/** Solo tests: resetear el probe de DB. */
+export function resetDatabaseAvailabilityForTests(): void {
+  databaseAvailable = null;
+  schemaReady = null;
+}
+
 export function getPool(): Pool {
   if (!process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL is not set");
@@ -210,8 +234,6 @@ export const APPOINTMENT_SELECT = `
   JOIN patients p ON p.id = a.patient_id
   JOIN doctors d ON d.id = a.doctor_id
 `;
-
-let schemaReady: Promise<void> | null = null;
 
 async function seedDoctor(pool: Pool): Promise<void> {
   const d = DEFAULT_DOCTOR_SEED;

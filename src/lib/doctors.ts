@@ -2,8 +2,8 @@ import { DEFAULT_DOCTOR_SEED, clinic } from "@/lib/clinic";
 import {
   ensureSchema,
   getPool,
-  hasDatabaseUrl,
   rowToDoctor,
+  useDatabase,
 } from "@/lib/db";
 import type { Doctor } from "@/lib/types";
 import * as fileStore from "@/lib/store";
@@ -13,7 +13,7 @@ export async function getDefaultDoctor(): Promise<Doctor> {
 }
 
 export async function getDoctorById(id: string): Promise<Doctor> {
-  if (!hasDatabaseUrl()) return fileStore.getDoctorById(id);
+  if (!(await useDatabase())) return fileStore.getDoctorById(id);
 
   await ensureSchema();
   const { rows } = await getPool().query(`SELECT * FROM doctors WHERE id = $1`, [

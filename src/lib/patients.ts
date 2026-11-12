@@ -2,8 +2,8 @@ import { randomUUID } from "crypto";
 import {
   ensureSchema,
   getPool,
-  hasDatabaseUrl,
   rowToPatient,
+  useDatabase,
 } from "@/lib/db";
 import {
   sortPatientsByName,
@@ -22,7 +22,7 @@ export {
 export async function getByGoogleSub(
   googleSub: string,
 ): Promise<Patient | undefined> {
-  if (!hasDatabaseUrl()) return fileStore.getPatientByGoogleSub(googleSub);
+  if (!(await useDatabase())) return fileStore.getPatientByGoogleSub(googleSub);
   await ensureSchema();
   const { rows } = await getPool().query(
     `SELECT * FROM patients WHERE google_sub = $1`,
@@ -34,7 +34,7 @@ export async function getByGoogleSub(
 export async function getPatientById(
   id: string,
 ): Promise<Patient | undefined> {
-  if (!hasDatabaseUrl()) return fileStore.getPatientById(id);
+  if (!(await useDatabase())) return fileStore.getPatientById(id);
   await ensureSchema();
   const { rows } = await getPool().query(`SELECT * FROM patients WHERE id = $1`, [
     id,
@@ -43,7 +43,7 @@ export async function getPatientById(
 }
 
 export async function listPatients(): Promise<Patient[]> {
-  if (!hasDatabaseUrl()) {
+  if (!(await useDatabase())) {
     return sortPatientsByName(await fileStore.listPatients());
   }
   await ensureSchema();
@@ -59,7 +59,7 @@ export async function upsertFromGoogleSession(input: {
   name?: string | null;
   refreshToken?: string | null;
 }): Promise<Patient> {
-  if (!hasDatabaseUrl()) return fileStore.upsertPatientFromGoogle(input);
+  if (!(await useDatabase())) return fileStore.upsertPatientFromGoogle(input);
 
   await ensureSchema();
   const existing = await getByGoogleSub(input.googleSub);
@@ -113,7 +113,7 @@ export async function createManualPatient(input: {
   profile: PatientProfileInput;
   email?: string;
 }): Promise<Patient> {
-  if (!hasDatabaseUrl()) return fileStore.createManualPatient(input);
+  if (!(await useDatabase())) return fileStore.createManualPatient(input);
 
   await ensureSchema();
   const dni = input.profile.dni;
@@ -181,7 +181,7 @@ export async function updateProfile(
   googleSub: string,
   profile: PatientProfileInput,
 ): Promise<Patient | undefined> {
-  if (!hasDatabaseUrl()) {
+  if (!(await useDatabase())) {
     return fileStore.updatePatientProfile(googleSub, profile);
   }
 
