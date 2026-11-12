@@ -8,15 +8,16 @@ import { clinic } from "@/lib/clinic";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { href: "/reservar", label: "Reservar" },
-  { href: "/mis-turnos", label: "Mis turnos" },
-  { href: "/admin", label: "Consultorio" },
+  { href: "/reservar", label: "Reservar", requiresAuth: false },
+  { href: "/mis-turnos", label: "Mis turnos", requiresAuth: true },
+  { href: "/admin", label: "Consultorio", requiresAuth: true },
 ] as const;
 
 export function SiteHeader() {
   const pathname = usePathname();
   const { data: session, status } = useSession();
   const signedIn = status === "authenticated" && Boolean(session?.user);
+  const navItems = NAV.filter((item) => !item.requiresAuth || signedIn);
 
   return (
     <header className="relative z-20 shrink-0 border-b border-teal-900/10 bg-white/75 backdrop-blur-md">
@@ -47,7 +48,7 @@ export function SiteHeader() {
             aria-label="Principal"
             className="flex items-center rounded-full border border-teal-900/10 bg-teal-50/70 p-0.5"
           >
-            {NAV.map((item) => {
+            {navItems.map((item) => {
               const active =
                 pathname === item.href || pathname.startsWith(`${item.href}/`);
               return (

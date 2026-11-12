@@ -3,6 +3,11 @@ import { hasDatabaseUrl } from "@/lib/db";
 import { isProfileComplete } from "@/lib/patient-utils";
 import type { Patient, PatientSex } from "@/lib/types";
 
+/**
+ * TEMPORAL: todo este módulo se elimina al integrar Supabase.
+ * Ver `docs/MOCKUP-TEMPORAL.md`.
+ */
+
 /** Vercel (u ODONTO_MEMORY_STORE): store en memoria con seed volume. */
 export function preferMemoryStore(): boolean {
   const flag = process.env.ODONTO_MEMORY_STORE;

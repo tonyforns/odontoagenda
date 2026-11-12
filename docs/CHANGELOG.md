@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-12 (mock temporal documentado)
+
+- `docs/MOCKUP-TEMPORAL.md`: checklist de qué borrar al integrar Supabase.
+- Home: imagen del hero restaurada; nav oculta Mis turnos/Consultorio sin login.
+
 ## 2026-11-12 (login Gmail issuer)
 
 - Google OAuth: `issuer` + `token`/`userinfo` explícitos (evita Configuration por id_token).
