@@ -22,14 +22,18 @@ declare module "next-auth" {
   }
 }
 
-declare module "next-auth/jwt" {
-  interface JWT {
-    googleSub?: string;
-    googleRefreshToken?: string;
-    hasCalendarAccess?: boolean;
-    role?: AppRole;
-    doctorId?: string | null;
-  }
+type AuthJwtFields = {
+  googleSub?: string;
+  googleRefreshToken?: string;
+  hasCalendarAccess?: boolean;
+  role?: AppRole;
+  doctorId?: string | null;
+  email?: string | null;
+  sub?: string;
+};
+
+function asAuthJwt(token: unknown): AuthJwtFields {
+  return (token ?? {}) as AuthJwtFields;
 }
 
 function env(name: string): string {
@@ -96,45 +100,50 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return account?.provider === "google";
     },
     async jwt({ token, account, profile }) {
+      const jwt = token as typeof token & AuthJwtFields;
+
       if (account?.provider === "google") {
-        token.googleSub =
+        jwt.googleSub =
           account.providerAccountId ||
           (profile as { sub?: string } | undefined)?.sub ||
           token.sub;
         if (account.refresh_token) {
-          token.googleRefreshToken = account.refresh_token;
-          token.hasCalendarAccess = true;
+          jwt.googleRefreshToken = account.refresh_token;
+          jwt.hasCalendarAccess = true;
         }
         if (account.scope?.includes("calendar.events")) {
-          token.hasCalendarAccess = true;
+          jwt.hasCalendarAccess = true;
         }
       }
 
       const email =
-        typeof token.email === "string" ? token.email : undefined;
+        typeof jwt.email === "string" ? jwt.email : undefined;
       const googleSub =
-        (token.googleSub as string | undefined) ||
-        (token.sub as string | undefined);
+        (typeof jwt.googleSub === "string" ? jwt.googleSub : undefined) ||
+        (typeof jwt.sub === "string" ? jwt.sub : undefined);
 
       try {
         const { role, staff } = await resolveAppRole({ email, googleSub });
-        token.role = role;
-        token.doctorId = staff?.doctorId ?? null;
+        jwt.role = role;
+        jwt.doctorId = staff?.doctorId ?? null;
       } catch (error) {
         console.error("[auth] resolveAppRole failed", error);
-        token.role = token.role ?? "paciente";
+        jwt.role = jwt.role ?? "paciente";
       }
 
-      return token;
+      return jwt;
     },
     async session({ session, token }) {
       if (session.user) {
+        const jwt = asAuthJwt(token);
         session.user.googleSub =
-          (token.googleSub as string | undefined) ||
-          (token.sub as string | undefined);
-        session.user.hasCalendarAccess = Boolean(token.hasCalendarAccess);
-        session.user.role = (token.role as AppRole | undefined) ?? "paciente";
-        session.user.doctorId = token.doctorId ?? null;
+          (typeof jwt.googleSub === "string" ? jwt.googleSub : undefined) ||
+          (typeof jwt.sub === "string" ? jwt.sub : undefined);
+        session.user.hasCalendarAccess = Boolean(jwt.hasCalendarAccess);
+        session.user.role =
+          typeof jwt.role === "string" ? jwt.role : "paciente";
+        session.user.doctorId =
+          typeof jwt.doctorId === "string" ? jwt.doctorId : null;
       }
       return session;
     },

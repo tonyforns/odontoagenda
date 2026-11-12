@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-12 (fix build Auth.js JWT types)
+
+- `src/auth.ts`: sin `declare module "next-auth/jwt"` (rompe `tsc` en Auth.js v5); campos JWT tipados con casts seguros.
+
 ## 2026-11-12 (seed pacientes en Postgres)
 
 - `pnpm seed:volume` usa `DATABASE_URL` si existe (pacientes/turnos demo); si no, sigue en `.data/store.json`.
