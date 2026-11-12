@@ -60,10 +60,9 @@ Configurá en el hosting / Cursor Secrets:
 - `GOOGLE_REFRESH_TOKEN` (calendario del doctor)
 - `GOOGLE_CALENDAR_ID` (opcional, default `primary`)
 - `DOCTOR_PIN`
-- `DATABASE_URL` (Postgres de Supabase; sin esto → mock temporal)
+- `DATABASE_URL` (Postgres de Supabase; obligatorio en producción)
 - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (client helpers)
-- Setup paso a paso: `docs/SUPABASE.md`
-- **Temporal:** al confirmar DB, quitar mock — `docs/MOCKUP-TEMPORAL.md`
+- Setup: `docs/SUPABASE.md`
 - Roles (médico/admin/secretaria/paciente): etapa posterior
 
 Redirect URI de login paciente: `{AUTH_URL}/api/auth/callback/google`  

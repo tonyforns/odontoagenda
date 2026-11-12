@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-12 (mock retirado)
+
+- Eliminado modo demo en memoria, ficha auto-mock y banner de Reservar.
+- Producción usa solo Supabase (`DATABASE_URL`); `seed:volume` queda para demos locales.
+
 ## 2026-11-12 (Supabase etapa 1)
 
 - Paquetes `@supabase/supabase-js` / `@supabase/ssr` + helpers `src/lib/supabase/*`.

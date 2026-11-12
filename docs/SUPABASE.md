@@ -39,8 +39,7 @@ Al primer request con `DATABASE_URL`, `ensureSchema()` también intenta aplicar 
 ## 4. Verificar
 
 - Local: `pnpm dev` → reservar un turno → Table Editor → `appointments` / `patients`.
-- Sin `DATABASE_URL` sigue el mock (ver `docs/MOCKUP-TEMPORAL.md`).
-- Con `DATABASE_URL` OK: más adelante sacar el mock.
+- Sin `DATABASE_URL` (solo local): JSON en `.data/` — no usar eso en Vercel.
 
 ## 5. Helpers JS (opcionales)
 

@@ -68,14 +68,12 @@ export function BookingForm() {
   const [oauthCallbackUrl, setOauthCallbackUrl] = useState(
     "https://odontoagenda.vercel.app/api/auth/callback/google",
   );
-  const [mockBooking, setMockBooking] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/status")
       .then((r) => r.json())
       .then((data) => {
         setGoogleConfigured(Boolean(data.googleConfigured));
-        setMockBooking(Boolean(data.mockBooking));
         if (typeof data.callbackUrl === "string" && data.callbackUrl) {
           setOauthCallbackUrl(data.callbackUrl);
         }
@@ -334,12 +332,6 @@ export function BookingForm() {
 
   return (
     <form onSubmit={onSubmit} className="flex h-full min-h-0 flex-col gap-2">
-      {mockBooking ? (
-        <p className="shrink-0 rounded-lg border border-teal-800/15 bg-teal-50/80 px-3 py-1.5 text-xs text-teal-900/75">
-          Modo demo: login Gmail real; turnos y Calendar mockeados (sin base de
-          datos).
-        </p>
-      ) : null}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-teal-900/10 bg-gradient-to-br from-white via-white to-teal-50/40">
         <div className="grid min-h-0 flex-1 lg:grid-cols-2">
           <section className="min-h-0 overflow-y-auto border-b border-teal-900/8 p-3 sm:p-4 lg:border-b-0 lg:border-r">

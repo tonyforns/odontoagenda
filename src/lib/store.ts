@@ -2,11 +2,6 @@ import { randomBytes, randomUUID } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
 import { DEFAULT_DOCTOR_SEED, clinic } from "@/lib/clinic";
-import { buildVolumeDemoStore } from "@/lib/demo-seed";
-import {
-  preferMemoryStore,
-  withMockCompleteProfile,
-} from "@/lib/mock-mode";
 import { endTimeFor } from "@/lib/slots";
 import type {
   Appointment,
@@ -15,8 +10,6 @@ import type {
   Patient,
   PatientProfileInput,
 } from "@/lib/types";
-
-export { preferMemoryStore };
 
 function splitGoogleName(name?: string | null): {
   firstName: string;
@@ -39,11 +32,6 @@ type StoreShape = {
   appointments: Appointment[];
 };
 
-declare global {
-  // eslint-disable-next-line no-var
-  var __odontoMemStore: StoreShape | undefined;
-}
-
 function nowIso() {
   return new Date().toISOString();
 }
@@ -53,25 +41,9 @@ function seedDoctor(): Doctor {
   return { ...DEFAULT_DOCTOR_SEED, createdAt: now, updatedAt: now };
 }
 
+/** Fallback local sin DATABASE_URL. Para demos densas: `pnpm seed:volume`. */
 function seedStore(): StoreShape {
-  // Volume demo for empty local stores / Vercel mock; re-seed with `pnpm seed:volume`.
-  return buildVolumeDemoStore();
-}
-
-function getMemoryStore(): StoreShape {
-  if (!globalThis.__odontoMemStore) {
-    globalThis.__odontoMemStore = seedStore();
-  }
-  return globalThis.__odontoMemStore;
-}
-
-function setMemoryStore(store: StoreShape): void {
-  globalThis.__odontoMemStore = store;
-}
-
-/** Solo tests. */
-export function resetMemoryStoreForTests(): void {
-  globalThis.__odontoMemStore = undefined;
+  return { doctors: [seedDoctor()], patients: [], appointments: [] };
 }
 
 function withJoins(store: StoreShape, appointment: Appointment): Appointment {
@@ -95,7 +67,6 @@ async function ensureFile(): Promise<void> {
   try {
     await fs.access(DATA_FILE);
   } catch {
-    // Migrate away from legacy file if present
     try {
       await fs.access(LEGACY_FILE);
       await fs.unlink(LEGACY_FILE);
@@ -107,36 +78,20 @@ async function ensureFile(): Promise<void> {
 }
 
 async function readStore(): Promise<StoreShape> {
-  if (preferMemoryStore()) {
-    return getMemoryStore();
+  await ensureFile();
+  const raw = await fs.readFile(DATA_FILE, "utf8");
+  const parsed = JSON.parse(raw) as StoreShape;
+  if (!parsed.doctors?.length) {
+    parsed.doctors = [seedDoctor()];
   }
-  try {
-    await ensureFile();
-    const raw = await fs.readFile(DATA_FILE, "utf8");
-    const parsed = JSON.parse(raw) as StoreShape;
-    if (!parsed.doctors?.length) {
-      parsed.doctors = [seedDoctor()];
-    }
-    if (!parsed.patients) parsed.patients = [];
-    if (!parsed.appointments) parsed.appointments = [];
-    return parsed;
-  } catch {
-    // Sin disco escribible (p. ej. runtime restringido): mock volume en memoria.
-    return getMemoryStore();
-  }
+  if (!parsed.patients) parsed.patients = [];
+  if (!parsed.appointments) parsed.appointments = [];
+  return parsed;
 }
 
 async function writeStore(store: StoreShape): Promise<void> {
-  if (preferMemoryStore()) {
-    setMemoryStore(store);
-    return;
-  }
-  try {
-    await ensureFile();
-    await fs.writeFile(DATA_FILE, JSON.stringify(store, null, 2), "utf8");
-  } catch {
-    setMemoryStore(store);
-  }
+  await ensureFile();
+  await fs.writeFile(DATA_FILE, JSON.stringify(store, null, 2), "utf8");
 }
 
 export async function getDoctorById(id: string): Promise<Doctor> {
@@ -188,13 +143,11 @@ export async function upsertPatientFromGoogle(input: {
       existing.googleRefreshToken = input.refreshToken;
     }
     existing.updatedAt = now;
-    const completed = withMockCompleteProfile(existing);
-    Object.assign(existing, completed);
     await writeStore(store);
     return existing;
   }
 
-  const patient: Patient = withMockCompleteProfile({
+  const patient: Patient = {
     id: randomUUID(),
     googleSub: input.googleSub,
     email,
@@ -203,7 +156,7 @@ export async function upsertPatientFromGoogle(input: {
     googleRefreshToken: input.refreshToken ?? null,
     createdAt: now,
     updatedAt: now,
-  });
+  };
   store.patients.push(patient);
   await writeStore(store);
   return patient;

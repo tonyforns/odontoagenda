@@ -5,7 +5,6 @@ import {
   rowToPatient,
   useDatabase,
 } from "@/lib/db";
-import { withMockCompleteProfile } from "@/lib/mock-mode";
 import {
   sortPatientsByName,
   splitGoogleName,
@@ -87,7 +86,7 @@ export async function upsertFromGoogleSession(input: {
         now,
       ],
     );
-    return withMockCompleteProfile(rowToPatient(rows[0]));
+    return rowToPatient(rows[0]);
   }
 
   const { rows } = await getPool().query(
@@ -107,7 +106,7 @@ export async function upsertFromGoogleSession(input: {
       now,
     ],
   );
-  return withMockCompleteProfile(rowToPatient(rows[0]));
+  return rowToPatient(rows[0]);
 }
 
 export async function createManualPatient(input: {

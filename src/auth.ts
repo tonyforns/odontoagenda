@@ -1,7 +1,6 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { rememberAuthError } from "@/lib/auth-debug";
-import { isMockBookingMode } from "@/lib/mock-mode";
 import { upsertFromGoogleSession } from "@/lib/patients";
 
 declare module "next-auth" {
@@ -32,13 +31,13 @@ const googleClientSecret =
   env("AUTH_GOOGLE_SECRET") || env("GOOGLE_CLIENT_SECRET");
 const authSecret = env("AUTH_SECRET") || env("NEXTAUTH_SECRET");
 
-/** En mock no pedimos Calendar: consent más simple. */
 function googleScopes() {
-  const base = ["openid", "email", "profile"];
-  if (!isMockBookingMode()) {
-    base.push("https://www.googleapis.com/auth/calendar.events");
-  }
-  return base.join(" ");
+  return [
+    "openid",
+    "email",
+    "profile",
+    "https://www.googleapis.com/auth/calendar.events",
+  ].join(" ");
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({

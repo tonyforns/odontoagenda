@@ -5,7 +5,7 @@ import {
   googleOAuthCallbackUrl,
   resolvePublicOrigin,
 } from "@/lib/auth-public-url";
-import { isMockBookingMode } from "@/lib/mock-mode";
+import { hasDatabaseUrl } from "@/lib/db";
 
 export async function GET(request: Request) {
   const origin = resolvePublicOrigin({
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     googleConfigured: isGoogleAuthConfigured(),
     callbackUrl: googleOAuthCallbackUrl(origin),
     authUrl: origin,
-    mockBooking: isMockBookingMode(),
+    hasDatabaseUrl: hasDatabaseUrl(),
     hasAuthSecret: Boolean(
       (process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "").trim(),
     ),
