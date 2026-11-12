@@ -1,58 +1,139 @@
 import { randomBytes, randomUUID } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
-import type { Appointment, CreateAppointmentInput } from "@/lib/clinic";
+import { DEFAULT_DOCTOR_SEED, clinic } from "@/lib/clinic";
 import { endTimeFor } from "@/lib/slots";
+import type {
+  Appointment,
+  CreateAppointmentInput,
+  Doctor,
+  Patient,
+  PatientProfileInput,
+} from "@/lib/types";
+
+function splitGoogleName(name?: string | null): {
+  firstName: string;
+  lastName: string;
+} {
+  const trimmed = (name ?? "").trim();
+  if (!trimmed) return { firstName: "", lastName: "" };
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 1) return { firstName: parts[0], lastName: "" };
+  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+}
 
 const DATA_DIR = path.join(process.cwd(), ".data");
-const DATA_FILE = path.join(DATA_DIR, "appointments.json");
+const DATA_FILE = path.join(DATA_DIR, "store.json");
+const LEGACY_FILE = path.join(DATA_DIR, "appointments.json");
 
-type StoreShape = { appointments: Appointment[] };
+type StoreShape = {
+  doctors: Doctor[];
+  patients: Patient[];
+  appointments: Appointment[];
+};
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function seedDoctor(): Doctor {
+  const now = nowIso();
+  return { ...DEFAULT_DOCTOR_SEED, createdAt: now, updatedAt: now };
+}
+
+function seedStore(): StoreShape {
+  const doctor = seedDoctor();
+  const now = nowIso();
+  const patientId = randomUUID();
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  while (tomorrow.getDay() === 0 || tomorrow.getDay() === 6) {
+    tomorrow.setDate(tomorrow.getDate() + 1);
+  }
+  const date = tomorrow.toISOString().slice(0, 10);
+
+  const patient: Patient = {
+    id: patientId,
+    googleSub: "seed-demo-sub",
+    email: "maria@example.com",
+    firstName: "María",
+    lastName: "Pérez",
+    dni: "30111222",
+    birthDate: "1990-05-12",
+    sex: "female",
+    obraSocial: "Particular",
+    phone: "11 5555-1212",
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const appointment: Appointment = {
+    id: randomUUID(),
+    doctorId: doctor.id,
+    patientId: patient.id,
+    date,
+    startTime: "10:00",
+    durationMinutes: doctor.slotMinutes,
+    endTime: endTimeFor("10:00", doctor.slotMinutes),
+    status: "confirmed",
+    manageToken: randomBytes(16).toString("hex"),
+    googleEventId: "mock-seed-1",
+    calendarMode: "mock",
+    createdAt: now,
+    updatedAt: now,
+    patient,
+    doctor: {
+      id: doctor.id,
+      fullName: doctor.fullName,
+      specialty: doctor.specialty,
+    },
+  };
+
+  return { doctors: [doctor], patients: [patient], appointments: [appointment] };
+}
+
+function withJoins(store: StoreShape, appointment: Appointment): Appointment {
+  const patient = store.patients.find((p) => p.id === appointment.patientId);
+  const doctor = store.doctors.find((d) => d.id === appointment.doctorId);
+  return {
+    ...appointment,
+    patient,
+    doctor: doctor
+      ? {
+          id: doctor.id,
+          fullName: doctor.fullName,
+          specialty: doctor.specialty,
+        }
+      : appointment.doctor,
+  };
+}
 
 async function ensureFile(): Promise<void> {
   await fs.mkdir(DATA_DIR, { recursive: true });
   try {
     await fs.access(DATA_FILE);
   } catch {
-    const seed: StoreShape = { appointments: seedAppointments() };
-    await fs.writeFile(DATA_FILE, JSON.stringify(seed, null, 2), "utf8");
+    // Migrate away from legacy file if present
+    try {
+      await fs.access(LEGACY_FILE);
+      await fs.unlink(LEGACY_FILE);
+    } catch {
+      // ignore
+    }
+    await fs.writeFile(DATA_FILE, JSON.stringify(seedStore(), null, 2), "utf8");
   }
-}
-
-function seedAppointments(): Appointment[] {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  // Move to next weekday if weekend
-  while (tomorrow.getDay() === 0 || tomorrow.getDay() === 6) {
-    tomorrow.setDate(tomorrow.getDate() + 1);
-  }
-  const date = tomorrow.toISOString().slice(0, 10);
-  const now = new Date().toISOString();
-  return [
-    {
-      id: randomUUID(),
-      patientName: "María Pérez (ejemplo)",
-      dni: "30111222",
-      birthDate: "1990-05-12",
-      phone: "11 5555-1212",
-      email: "maria@example.com",
-      date,
-      startTime: "10:00",
-      endTime: "10:30",
-      status: "confirmed",
-      manageToken: randomBytes(16).toString("hex"),
-      googleEventId: "mock-seed-1",
-      calendarMode: "mock",
-      createdAt: now,
-      updatedAt: now,
-    },
-  ];
 }
 
 async function readStore(): Promise<StoreShape> {
   await ensureFile();
   const raw = await fs.readFile(DATA_FILE, "utf8");
-  return JSON.parse(raw) as StoreShape;
+  const parsed = JSON.parse(raw) as StoreShape;
+  if (!parsed.doctors?.length) {
+    parsed.doctors = [seedDoctor()];
+  }
+  if (!parsed.patients) parsed.patients = [];
+  if (!parsed.appointments) parsed.appointments = [];
+  return parsed;
 }
 
 async function writeStore(store: StoreShape): Promise<void> {
@@ -60,56 +141,146 @@ async function writeStore(store: StoreShape): Promise<void> {
   await fs.writeFile(DATA_FILE, JSON.stringify(store, null, 2), "utf8");
 }
 
-export async function listAppointments(): Promise<Appointment[]> {
+export async function getDoctorById(id: string): Promise<Doctor> {
   const store = await readStore();
-  return store.appointments;
+  const found = store.doctors.find((d) => d.id === id);
+  if (found) return found;
+  const doctor = seedDoctor();
+  store.doctors.push(doctor);
+  await writeStore(store);
+  return doctor;
 }
 
-export async function listConfirmedAppointments(): Promise<Appointment[]> {
+export async function getPatientByGoogleSub(
+  googleSub: string,
+): Promise<Patient | undefined> {
+  const store = await readStore();
+  return store.patients.find((p) => p.googleSub === googleSub);
+}
+
+export async function getPatientById(
+  id: string,
+): Promise<Patient | undefined> {
+  const store = await readStore();
+  return store.patients.find((p) => p.id === id);
+}
+
+export async function upsertPatientFromGoogle(input: {
+  googleSub: string;
+  email: string;
+  name?: string | null;
+  refreshToken?: string | null;
+}): Promise<Patient> {
+  const store = await readStore();
+  const email = input.email.trim().toLowerCase();
+  const split = splitGoogleName(input.name);
+  const existing = store.patients.find((p) => p.googleSub === input.googleSub);
+  const now = nowIso();
+
+  if (existing) {
+    existing.email = email;
+    if (!existing.firstName) existing.firstName = split.firstName;
+    if (!existing.lastName) existing.lastName = split.lastName;
+    if (input.refreshToken) {
+      existing.googleRefreshToken = input.refreshToken;
+    }
+    existing.updatedAt = now;
+    await writeStore(store);
+    return existing;
+  }
+
+  const patient: Patient = {
+    id: randomUUID(),
+    googleSub: input.googleSub,
+    email,
+    firstName: split.firstName,
+    lastName: split.lastName,
+    googleRefreshToken: input.refreshToken ?? null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  store.patients.push(patient);
+  await writeStore(store);
+  return patient;
+}
+
+export async function updatePatientProfile(
+  googleSub: string,
+  profile: PatientProfileInput,
+): Promise<Patient | undefined> {
+  const store = await readStore();
+  const patient = store.patients.find((p) => p.googleSub === googleSub);
+  if (!patient) return undefined;
+  patient.firstName = profile.firstName.trim();
+  patient.lastName = profile.lastName.trim();
+  patient.dni = profile.dni;
+  patient.birthDate = profile.birthDate;
+  patient.sex = profile.sex;
+  patient.obraSocial = profile.obraSocial.trim();
+  patient.phone = profile.phone.trim();
+  patient.updatedAt = nowIso();
+  await writeStore(store);
+  return patient;
+}
+
+export async function listAppointments(): Promise<Appointment[]> {
+  const store = await readStore();
+  return store.appointments
+    .map((a) => withJoins(store, a))
+    .sort((a, b) =>
+      `${b.date}${b.startTime}`.localeCompare(`${a.date}${a.startTime}`),
+    );
+}
+
+export async function listConfirmedAppointments(
+  doctorId: string = clinic.defaultDoctorId,
+): Promise<Appointment[]> {
   const all = await listAppointments();
-  return all.filter((a) => a.status === "confirmed");
+  return all.filter(
+    (a) => a.status === "confirmed" && a.doctorId === doctorId,
+  );
 }
 
 export async function findById(id: string): Promise<Appointment | undefined> {
-  const all = await listAppointments();
-  return all.find((a) => a.id === id);
+  const store = await readStore();
+  const found = store.appointments.find((a) => a.id === id);
+  return found ? withJoins(store, found) : undefined;
 }
 
-export async function findByDniAndBirth(
-  dni: string,
-  birthDate: string,
+export async function findByPatientId(
+  patientId: string,
 ): Promise<Appointment[]> {
   const all = await listAppointments();
-  return all
-    .filter((a) => a.dni === dni && a.birthDate === birthDate)
-    .sort((a, b) => `${b.date}${b.startTime}`.localeCompare(`${a.date}${a.startTime}`));
+  return all.filter((a) => a.patientId === patientId);
 }
 
 export async function createAppointment(
   input: CreateAppointmentInput,
 ): Promise<Appointment> {
   const store = await readStore();
-  const now = new Date().toISOString();
+  const doctor =
+    store.doctors.find((d) => d.id === input.doctorId) ?? seedDoctor();
+  const duration = input.durationMinutes ?? doctor.slotMinutes;
+  const now = nowIso();
   const appointment: Appointment = {
     id: randomUUID(),
-    patientName: input.patientName.trim(),
-    dni: input.dni,
-    birthDate: input.birthDate,
-    phone: input.phone.trim(),
-    email: input.email?.trim() || undefined,
+    doctorId: input.doctorId,
+    patientId: input.patientId,
     date: input.date,
     startTime: input.startTime,
-    endTime: endTimeFor(input.startTime),
+    durationMinutes: duration,
+    endTime: endTimeFor(input.startTime, duration),
     status: "confirmed",
     manageToken: randomBytes(16).toString("hex"),
     googleEventId: null,
+    patientGoogleEventId: null,
     calendarMode: "mock",
     createdAt: now,
     updatedAt: now,
   };
   store.appointments.push(appointment);
   await writeStore(store);
-  return appointment;
+  return withJoins(store, appointment);
 }
 
 export async function updateAppointment(
@@ -119,21 +290,32 @@ export async function updateAppointment(
   const store = await readStore();
   const idx = store.appointments.findIndex((a) => a.id === id);
   if (idx < 0) return undefined;
-  store.appointments[idx] = {
-    ...store.appointments[idx],
+  const current = store.appointments[idx];
+  const next: Appointment = {
+    ...current,
     ...patch,
-    updatedAt: new Date().toISOString(),
+    patient: undefined,
+    doctor: undefined,
+    updatedAt: nowIso(),
   };
+  if (patch.startTime || patch.durationMinutes) {
+    next.endTime = endTimeFor(
+      next.startTime,
+      next.durationMinutes,
+    );
+  }
+  store.appointments[idx] = next;
   await writeStore(store);
-  return store.appointments[idx];
+  return withJoins(store, next);
 }
 
 export async function isSlotTaken(
   date: string,
   startTime: string,
+  doctorId: string = clinic.defaultDoctorId,
   excludeId?: string,
 ): Promise<boolean> {
-  const confirmed = await listConfirmedAppointments();
+  const confirmed = await listConfirmedAppointments(doctorId);
   return confirmed.some(
     (a) =>
       a.date === date &&

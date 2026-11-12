@@ -1,5 +1,8 @@
+import { readFile } from "fs/promises";
+import path from "path";
 import { Pool } from "pg";
-import type { Appointment } from "@/lib/clinic";
+import { DEFAULT_DOCTOR_SEED } from "@/lib/clinic";
+import type { Appointment, Doctor, Patient, PatientSex } from "@/lib/types";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -26,77 +29,305 @@ export function getPool(): Pool {
   return global.__odontoPool;
 }
 
-type Row = {
+type DoctorRow = {
   id: string;
-  patient_name: string;
-  dni: string;
-  birth_date: string;
-  phone: string;
+  full_name: string;
+  specialty: string;
   email: string | null;
-  date: string;
-  start_time: string;
-  end_time: string;
-  status: "confirmed" | "cancelled";
-  manage_token: string;
-  google_event_id: string | null;
-  calendar_mode: "google" | "mock";
+  phone: string | null;
+  address: string | null;
+  timezone: string;
+  slot_minutes: number;
+  work_days: string;
+  windows_json: string;
+  booking_horizon_days: number;
+  pin: string;
+  google_calendar_id: string | null;
+  google_refresh_token: string | null;
   created_at: Date | string;
   updated_at: Date | string;
 };
 
-export function rowToAppointment(row: Row): Appointment {
+type PatientRow = {
+  id: string;
+  google_sub: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  dni: string | null;
+  birth_date: string | null;
+  sex: string | null;
+  obra_social: string | null;
+  phone: string | null;
+  google_refresh_token?: string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+};
+
+type AppointmentRow = {
+  id: string;
+  doctor_id: string;
+  patient_id: string;
+  date: string;
+  start_time: string;
+  duration_minutes: number;
+  end_time: string;
+  status: "confirmed" | "cancelled";
+  manage_token: string;
+  google_event_id: string | null;
+  patient_google_event_id?: string | null;
+  calendar_mode: "google" | "mock";
+  created_at: Date | string;
+  updated_at: Date | string;
+  // optional join
+  p_first_name?: string;
+  p_last_name?: string;
+  p_email?: string;
+  p_dni?: string | null;
+  p_birth_date?: string | null;
+  p_sex?: string | null;
+  p_obra_social?: string | null;
+  p_phone?: string | null;
+  p_google_sub?: string;
+  p_created_at?: Date | string;
+  p_updated_at?: Date | string;
+  d_full_name?: string;
+  d_specialty?: string;
+};
+
+function iso(value: Date | string): string {
+  return typeof value === "string" ? value : value.toISOString();
+}
+
+export function rowToDoctor(row: DoctorRow): Doctor {
   return {
     id: row.id,
-    patientName: row.patient_name,
+    fullName: row.full_name,
+    specialty: row.specialty,
+    email: row.email || undefined,
+    phone: row.phone || undefined,
+    address: row.address || undefined,
+    timezone: row.timezone,
+    slotMinutes: row.slot_minutes,
+    workDays: JSON.parse(row.work_days) as number[],
+    windows: JSON.parse(row.windows_json) as Doctor["windows"],
+    bookingHorizonDays: row.booking_horizon_days,
+    pin: row.pin,
+    googleCalendarId: row.google_calendar_id,
+    googleRefreshToken: row.google_refresh_token,
+    createdAt: iso(row.created_at),
+    updatedAt: iso(row.updated_at),
+  };
+}
+
+export function rowToPatient(row: PatientRow): Patient {
+  return {
+    id: row.id,
+    googleSub: row.google_sub,
+    email: row.email,
+    firstName: row.first_name,
+    lastName: row.last_name,
     dni: row.dni,
     birthDate: row.birth_date,
+    sex: (row.sex as PatientSex | null) ?? null,
+    obraSocial: row.obra_social,
     phone: row.phone,
-    email: row.email || undefined,
+    googleRefreshToken: row.google_refresh_token ?? null,
+    createdAt: iso(row.created_at),
+    updatedAt: iso(row.updated_at),
+  };
+}
+
+/** Safe patient payload for API responses (no OAuth secrets). */
+export function publicPatient(patient: Patient): Patient {
+  const { googleRefreshToken: _token, ...rest } = patient;
+  return rest;
+}
+
+export function rowToAppointment(row: AppointmentRow): Appointment {
+  const appointment: Appointment = {
+    id: row.id,
+    doctorId: row.doctor_id,
+    patientId: row.patient_id,
     date: row.date,
     startTime: row.start_time,
+    durationMinutes: row.duration_minutes,
     endTime: row.end_time,
     status: row.status,
     manageToken: row.manage_token,
     googleEventId: row.google_event_id,
+    patientGoogleEventId: row.patient_google_event_id ?? null,
     calendarMode: row.calendar_mode,
-    createdAt:
-      typeof row.created_at === "string"
-        ? row.created_at
-        : row.created_at.toISOString(),
-    updatedAt:
-      typeof row.updated_at === "string"
-        ? row.updated_at
-        : row.updated_at.toISOString(),
+    createdAt: iso(row.created_at),
+    updatedAt: iso(row.updated_at),
   };
+
+  if (row.p_google_sub && row.p_email && row.p_first_name !== undefined) {
+    appointment.patient = {
+      id: row.patient_id,
+      googleSub: row.p_google_sub,
+      email: row.p_email,
+      firstName: row.p_first_name,
+      lastName: row.p_last_name ?? "",
+      dni: row.p_dni,
+      birthDate: row.p_birth_date,
+      sex: (row.p_sex as PatientSex | null) ?? null,
+      obraSocial: row.p_obra_social,
+      phone: row.p_phone,
+      createdAt: row.p_created_at ? iso(row.p_created_at) : appointment.createdAt,
+      updatedAt: row.p_updated_at ? iso(row.p_updated_at) : appointment.updatedAt,
+    };
+  }
+
+  if (row.d_full_name) {
+    appointment.doctor = {
+      id: row.doctor_id,
+      fullName: row.d_full_name,
+      specialty: row.d_specialty ?? "",
+    };
+  }
+
+  return appointment;
 }
 
+export const APPOINTMENT_SELECT = `
+  SELECT
+    a.*,
+    p.google_sub AS p_google_sub,
+    p.email AS p_email,
+    p.first_name AS p_first_name,
+    p.last_name AS p_last_name,
+    p.dni AS p_dni,
+    p.birth_date AS p_birth_date,
+    p.sex AS p_sex,
+    p.obra_social AS p_obra_social,
+    p.phone AS p_phone,
+    p.created_at AS p_created_at,
+    p.updated_at AS p_updated_at,
+    d.full_name AS d_full_name,
+    d.specialty AS d_specialty
+  FROM appointments a
+  JOIN patients p ON p.id = a.patient_id
+  JOIN doctors d ON d.id = a.doctor_id
+`;
+
 let schemaReady: Promise<void> | null = null;
+
+async function seedDoctor(pool: Pool): Promise<void> {
+  const d = DEFAULT_DOCTOR_SEED;
+  await pool.query(
+    `INSERT INTO doctors (
+      id, full_name, specialty, email, phone, address, timezone,
+      slot_minutes, work_days, windows_json, booking_horizon_days, pin,
+      google_calendar_id, google_refresh_token
+    ) VALUES (
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      full_name = EXCLUDED.full_name,
+      specialty = EXCLUDED.specialty,
+      phone = EXCLUDED.phone,
+      address = EXCLUDED.address,
+      pin = COALESCE(NULLIF(EXCLUDED.pin, ''), doctors.pin),
+      updated_at = NOW()`,
+    [
+      d.id,
+      d.fullName,
+      d.specialty,
+      d.email ?? null,
+      d.phone ?? null,
+      d.address ?? null,
+      d.timezone,
+      d.slotMinutes,
+      JSON.stringify(d.workDays),
+      JSON.stringify(d.windows),
+      d.bookingHorizonDays,
+      d.pin,
+      d.googleCalendarId ?? null,
+      d.googleRefreshToken ?? null,
+    ],
+  );
+}
 
 export async function ensureSchema(): Promise<void> {
   if (!schemaReady) {
     schemaReady = (async () => {
       const pool = getPool();
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS appointments (
-          id TEXT PRIMARY KEY,
-          patient_name TEXT NOT NULL,
-          dni TEXT NOT NULL,
-          birth_date TEXT NOT NULL,
-          phone TEXT NOT NULL,
-          email TEXT,
-          date TEXT NOT NULL,
-          start_time TEXT NOT NULL,
-          end_time TEXT NOT NULL,
-          status TEXT NOT NULL DEFAULT 'confirmed',
-          manage_token TEXT NOT NULL,
-          google_event_id TEXT,
-          calendar_mode TEXT NOT NULL DEFAULT 'mock',
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      const migrationPath = path.join(
+        process.cwd(),
+        "migrations",
+        "002_doctors_patients_appointments.sql",
+      );
+      try {
+        const sql = await readFile(migrationPath, "utf8");
+        await pool.query(sql);
+      } catch {
+        // Fallback inline DDL if file read fails in some runtimes
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS doctors (
+            id TEXT PRIMARY KEY,
+            full_name TEXT NOT NULL,
+            specialty TEXT NOT NULL,
+            email TEXT,
+            phone TEXT,
+            address TEXT,
+            timezone TEXT NOT NULL DEFAULT 'America/Argentina/Buenos_Aires',
+            slot_minutes INTEGER NOT NULL DEFAULT 30,
+            work_days TEXT NOT NULL,
+            windows_json TEXT NOT NULL,
+            booking_horizon_days INTEGER NOT NULL DEFAULT 21,
+            pin TEXT NOT NULL,
+            google_calendar_id TEXT,
+            google_refresh_token TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+          CREATE TABLE IF NOT EXISTS patients (
+            id TEXT PRIMARY KEY,
+            google_sub TEXT NOT NULL UNIQUE,
+            email TEXT NOT NULL UNIQUE,
+            first_name TEXT NOT NULL DEFAULT '',
+            last_name TEXT NOT NULL DEFAULT '',
+            dni TEXT UNIQUE,
+            birth_date TEXT,
+            sex TEXT,
+            obra_social TEXT,
+            phone TEXT,
+            google_refresh_token TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+          CREATE TABLE IF NOT EXISTS appointments (
+            id TEXT PRIMARY KEY,
+            doctor_id TEXT NOT NULL REFERENCES doctors (id),
+            patient_id TEXT NOT NULL REFERENCES patients (id),
+            date TEXT NOT NULL,
+            start_time TEXT NOT NULL,
+            duration_minutes INTEGER NOT NULL,
+            end_time TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'confirmed',
+            manage_token TEXT NOT NULL,
+            google_event_id TEXT,
+            patient_google_event_id TEXT,
+            calendar_mode TEXT NOT NULL DEFAULT 'mock',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+        `);
+      }
+      try {
+        const migratePatientCalendar = await readFile(
+          path.join(process.cwd(), "migrations", "003_patient_calendar.sql"),
+          "utf8",
         );
-        CREATE INDEX IF NOT EXISTS idx_appointments_dni_birth ON appointments (dni, birth_date);
-        CREATE INDEX IF NOT EXISTS idx_appointments_date_status ON appointments (date, status);
-      `);
+        await pool.query(migratePatientCalendar);
+      } catch {
+        await pool.query(`
+          ALTER TABLE patients ADD COLUMN IF NOT EXISTS google_refresh_token TEXT;
+          ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_google_event_id TEXT;
+        `);
+      }
+      await seedDoctor(pool);
     })();
   }
   await schemaReady;

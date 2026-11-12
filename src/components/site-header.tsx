@@ -1,7 +1,14 @@
+"use client";
+
+import { LogOut } from "lucide-react";
 import Link from "next/link";
+import { signOut, useSession } from "next-auth/react";
 import { clinic } from "@/lib/clinic";
 
 export function SiteHeader() {
+  const { data: session, status } = useSession();
+  const signedIn = status === "authenticated" && Boolean(session?.user);
+
   return (
     <header className="relative z-20 border-b border-teal-900/10 bg-white/70 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
@@ -13,7 +20,7 @@ export function SiteHeader() {
             {clinic.name}
           </span>
         </Link>
-        <nav className="flex items-center gap-1 text-sm sm:gap-3">
+        <nav className="flex items-center gap-1 text-sm sm:gap-2">
           <Link
             href="/reservar"
             className="rounded-md px-3 py-2 font-medium text-teal-950 transition hover:bg-teal-50"
@@ -32,6 +39,17 @@ export function SiteHeader() {
           >
             Consultorio
           </Link>
+          {signedIn ? (
+            <button
+              type="button"
+              onClick={() => signOut({ callbackUrl: "/" })}
+              title={session?.user?.email ? `Salir (${session.user.email})` : "Salir"}
+              aria-label="Salir"
+              className="ml-1 flex size-9 items-center justify-center rounded-full text-teal-800/70 transition hover:bg-teal-50 hover:text-teal-950"
+            >
+              <LogOut className="size-4" />
+            </button>
+          ) : null}
         </nav>
       </div>
     </header>

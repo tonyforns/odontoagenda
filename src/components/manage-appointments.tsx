@@ -2,12 +2,12 @@
 
 import { format, parse } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarPlus, Loader2 } from "lucide-react";
+import { CalendarPlus, Loader2, LogIn } from "lucide-react";
+import { signIn, useSession } from "next-auth/react";
 import { useEffect, useState, useTransition } from "react";
-import type { Appointment } from "@/lib/clinic";
+import type { Appointment } from "@/lib/types";
 import { googleCalendarAddUrl } from "@/lib/patient-calendar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 
@@ -18,12 +18,11 @@ function formatLongDate(date: string) {
 }
 
 export function ManageAppointments() {
-  const [dni, setDni] = useState("");
-  const [birthDate, setBirthDate] = useState("");
+  const { data: session, status } = useSession();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [searched, setSearched] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [pending, startTransition] = useTransition();
   const [rescheduleId, setRescheduleId] = useState<string | null>(null);
   const [dates, setDates] = useState<string[]>([]);
@@ -49,28 +48,29 @@ export function ManageAppointments() {
       .catch(() => setSlots([]));
   }, [newDate, rescheduleId]);
 
-  function lookup(e: React.FormEvent) {
-    e.preventDefault();
+  useEffect(() => {
+    if (status !== "authenticated") {
+      setAppointments([]);
+      setLoaded(false);
+      return;
+    }
+    setError(null);
+    fetch("/api/appointments")
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "No se pudieron cargar");
+        setAppointments(data.appointments ?? []);
+        setLoaded(true);
+      })
+      .catch((err: Error) => {
+        setError(err.message);
+        setLoaded(true);
+      });
+  }, [status]);
+
+  function cancel(appointment: Appointment) {
     setError(null);
     setMessage(null);
-    startTransition(async () => {
-      const res = await fetch(
-        `/api/appointments?dni=${encodeURIComponent(dni)}&birthDate=${encodeURIComponent(birthDate)}`,
-      );
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "No se pudo buscar");
-        setAppointments([]);
-        setSearched(true);
-        return;
-      }
-      setAppointments(data.appointments ?? []);
-      setSearched(true);
-    });
-  }
-
-  function cancelAppointment(appointment: Appointment) {
-    if (!confirm("¿Cancelar este turno?")) return;
     startTransition(async () => {
       const res = await fetch(`/api/appointments/${appointment.id}`, {
         method: "PATCH",
@@ -85,14 +85,17 @@ export function ManageAppointments() {
         setError(data.error ?? "No se pudo cancelar");
         return;
       }
-      setMessage(data.message);
       setAppointments((prev) =>
         prev.map((a) => (a.id === appointment.id ? data.appointment : a)),
       );
+      setMessage(data.message ?? "Turno cancelado.");
     });
   }
 
-  function confirmReschedule(appointment: Appointment) {
+  function reschedule(appointment: Appointment) {
+    if (!newDate || !newTime) return;
+    setError(null);
+    setMessage(null);
     startTransition(async () => {
       const res = await fetch(`/api/appointments/${appointment.id}`, {
         method: "PATCH",
@@ -109,51 +112,41 @@ export function ManageAppointments() {
         setError(data.error ?? "No se pudo reprogramar");
         return;
       }
-      setMessage(data.message);
-      setRescheduleId(null);
-      setNewTime("");
       setAppointments((prev) =>
         prev.map((a) => (a.id === appointment.id ? data.appointment : a)),
       );
+      setRescheduleId(null);
+      setMessage(data.message ?? "Turno reprogramado.");
     });
+  }
+
+  if (status === "loading") {
+    return (
+      <p className="flex items-center gap-2 text-sm text-teal-900/70">
+        <Loader2 className="size-4 animate-spin" /> Cargando…
+      </p>
+    );
+  }
+
+  if (!session?.user) {
+    return (
+      <div className="space-y-4">
+        <p className="text-teal-900/75">
+          Iniciá sesión con Gmail para ver, cancelar o reprogramar tus turnos.
+        </p>
+        <Button
+          className="bg-teal-800 hover:bg-teal-900"
+          onClick={() => signIn("google", { callbackUrl: "/mis-turnos" })}
+        >
+          <LogIn className="size-4" />
+          Continuar con Gmail
+        </Button>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-8">
-      <form onSubmit={lookup} className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="dni">DNI</Label>
-          <Input
-            id="dni"
-            value={dni}
-            onChange={(e) => setDni(e.target.value)}
-            required
-            placeholder="30111222"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="birthDate">Fecha de nacimiento</Label>
-          <Input
-            id="birthDate"
-            type="date"
-            value={birthDate}
-            onChange={(e) => setBirthDate(e.target.value)}
-            required
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <Button type="submit" disabled={pending} className="bg-teal-800 hover:bg-teal-900">
-            {pending ? (
-              <>
-                <Loader2 className="size-4 animate-spin" /> Buscando…
-              </>
-            ) : (
-              "Buscar mis turnos"
-            )}
-          </Button>
-        </div>
-      </form>
-
       {error ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {error}
@@ -165,138 +158,129 @@ export function ManageAppointments() {
         </p>
       ) : null}
 
-      {searched && appointments.length === 0 ? (
-        <p className="text-teal-900/70">
-          No encontramos turnos con ese DNI y fecha de nacimiento. Probá el
-          ejemplo demo: DNI <strong>30111222</strong>, nacimiento{" "}
-          <strong>1990-05-12</strong>.
+      {!loaded ? (
+        <p className="flex items-center gap-2 text-sm text-teal-900/70">
+          <Loader2 className="size-4 animate-spin" /> Buscando turnos…
         </p>
-      ) : null}
-
-      <ul className="space-y-4">
-        {appointments.map((appointment) => (
-          <li
-            key={appointment.id}
-            className="rounded-2xl border border-teal-900/10 bg-white/80 p-5"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="font-[family-name:var(--font-display)] text-xl text-teal-950">
-                  {formatLongDate(appointment.date)} · {appointment.startTime} hs
-                </p>
-                <p className="mt-1 text-sm text-teal-900/70">
-                  {appointment.patientName}
-                </p>
-              </div>
-              <Badge
-                variant={
-                  appointment.status === "confirmed" ? "default" : "secondary"
-                }
-                className={
-                  appointment.status === "confirmed"
-                    ? "bg-teal-800"
-                    : undefined
-                }
-              >
-                {appointment.status === "confirmed" ? "Confirmado" : "Cancelado"}
-              </Badge>
-            </div>
-
-            {appointment.status === "confirmed" ? (
-              <div className="mt-4 flex flex-col gap-3">
-                <div className="flex flex-wrap gap-2">
-                  <Button asChild variant="outline" size="sm">
-                    <a
-                      href={googleCalendarAddUrl(appointment)}
-                      target="_blank"
-                      rel="noreferrer"
+      ) : appointments.length === 0 ? (
+        <p className="text-teal-900/70">No tenés turnos registrados.</p>
+      ) : (
+        <ul className="space-y-4">
+          {appointments.map((a) => (
+            <li
+              key={a.id}
+              className="rounded-2xl border border-teal-900/10 bg-white/80 p-5"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium capitalize text-teal-950">
+                    {formatLongDate(a.date)} · {a.startTime} hs
+                    <span className="text-teal-900/60">
+                      {" "}
+                      ({a.durationMinutes} min)
+                    </span>
+                  </p>
+                  <div className="mt-2">
+                    <Badge
+                      variant={
+                        a.status === "confirmed" ? "default" : "secondary"
+                      }
                     >
-                      <CalendarPlus className="size-4" />
-                      Google Calendar
-                    </a>
-                  </Button>
-                  <Button asChild variant="outline" size="sm">
-                    <a href={`/api/appointments/${appointment.id}/ics`}>
-                      Descargar .ics
-                    </a>
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      setRescheduleId(appointment.id);
-                      setMessage(null);
-                      setError(null);
-                    }}
-                  >
-                    Reprogramar
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => cancelAppointment(appointment)}
-                  >
-                    Cancelar
-                  </Button>
+                      {a.status === "confirmed" ? "Confirmado" : "Cancelado"}
+                    </Badge>
+                  </div>
                 </div>
-
-                {rescheduleId === appointment.id ? (
-                  <div className="rounded-xl border border-teal-900/10 bg-teal-50/50 p-4">
-                    <p className="mb-3 text-sm font-medium text-teal-950">
-                      Elegí el nuevo horario
-                    </p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <select
-                        className="flex h-10 w-full rounded-lg border border-input bg-white px-3 text-sm"
-                        value={newDate}
-                        onChange={(e) => {
-                          setNewDate(e.target.value);
-                          setNewTime("");
-                        }}
+                {a.status === "confirmed" ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Button asChild size="sm" variant="outline">
+                      <a
+                        href={googleCalendarAddUrl(a)}
+                        target="_blank"
+                        rel="noreferrer"
                       >
-                        {dates.map((d) => (
-                          <option key={d} value={d}>
-                            {formatLongDate(d)}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        className="flex h-10 w-full rounded-lg border border-input bg-white px-3 text-sm"
-                        value={newTime}
-                        onChange={(e) => setNewTime(e.target.value)}
-                      >
-                        <option value="">Horario…</option>
-                        {slots.map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="mt-3 flex gap-2">
-                      <Button
-                        size="sm"
-                        className="bg-teal-800 hover:bg-teal-900"
-                        disabled={!newTime || pending}
-                        onClick={() => confirmReschedule(appointment)}
-                      >
-                        Confirmar cambio
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setRescheduleId(null)}
-                      >
-                        Cerrar
-                      </Button>
-                    </div>
+                        <CalendarPlus className="size-4" />
+                        Calendar
+                      </a>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={pending}
+                      onClick={() => {
+                        setRescheduleId(a.id);
+                        setNewTime("");
+                      }}
+                    >
+                      Reprogramar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={pending}
+                      onClick={() => cancel(a)}
+                    >
+                      Cancelar
+                    </Button>
                   </div>
                 ) : null}
               </div>
-            ) : null}
-          </li>
-        ))}
-      </ul>
+
+              {rescheduleId === a.id ? (
+                <div className="mt-4 space-y-3 border-t border-teal-900/10 pt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor={`date-${a.id}`}>Nueva fecha</Label>
+                    <select
+                      id={`date-${a.id}`}
+                      className="flex h-10 w-full rounded-lg border border-input bg-white px-3 text-sm"
+                      value={newDate}
+                      onChange={(e) => setNewDate(e.target.value)}
+                    >
+                      {dates.map((d) => (
+                        <option key={d} value={d}>
+                          {formatLongDate(d)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {slots.map((slot) => (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => setNewTime(slot)}
+                        className={`rounded-lg border px-3 py-1.5 text-sm ${
+                          newTime === slot
+                            ? "border-teal-800 bg-teal-800 text-white"
+                            : "border-teal-900/15 bg-white"
+                        }`}
+                      >
+                        {slot}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      disabled={pending || !newTime}
+                      className="bg-teal-800 hover:bg-teal-900"
+                      onClick={() => reschedule(a)}
+                    >
+                      Confirmar cambio
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setRescheduleId(null)}
+                    >
+                      Cerrar
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

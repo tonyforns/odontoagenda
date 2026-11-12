@@ -11,8 +11,8 @@ export default function MisTurnosPage() {
           Mis turnos
         </h1>
         <p className="mt-3 max-w-2xl text-teal-900/70">
-          Ingresá el DNI y la fecha de nacimiento con los que reservaste para
-          cancelar, reprogramar o agregarlo a tu calendario.
+          Entrá con tu Gmail para cancelar, reprogramar o agregar tus turnos al
+          calendario.
         </p>
       </div>
       <div className="animate-rise-delay rounded-[1.5rem] border border-teal-900/10 bg-white/75 p-6 shadow-sm backdrop-blur sm:p-8">

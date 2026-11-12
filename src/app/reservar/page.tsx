@@ -1,22 +1,18 @@
 import { BookingForm } from "@/components/booking-form";
-import { clinic } from "@/lib/clinic";
 
 export default function ReservarPage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-      <div className="mb-10 animate-rise">
-        <p className="text-sm font-medium uppercase tracking-[0.14em] text-teal-800/70">
+    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-14">
+      <div className="mb-8 max-w-2xl animate-rise">
+        <p className="text-xs font-medium uppercase tracking-[0.16em] text-teal-800/60">
           Reserva online
         </p>
-        <h1 className="mt-2 font-[family-name:var(--font-display)] text-4xl text-teal-950 sm:text-5xl">
+        <h1 className="mt-2 font-[family-name:var(--font-display)] text-4xl tracking-tight text-teal-950 sm:text-5xl">
           Pedí tu turno
         </h1>
-        <p className="mt-3 max-w-2xl text-teal-900/70">
-          Completá tus datos, elegí un horario libre con {clinic.doctorName} y
-          confirmá. Vas a poder sumarlo a tu calendario al instante.
-        </p>
       </div>
-      <div className="animate-rise-delay rounded-[1.5rem] border border-teal-900/10 bg-white/75 p-6 shadow-sm backdrop-blur sm:p-8">
+
+      <div className="animate-rise-delay rounded-[1.75rem] border border-teal-900/10 bg-white/80 p-5 shadow-[0_24px_60px_-40px_rgba(15,80,70,0.45)] backdrop-blur-sm sm:p-7">
         <BookingForm />
       </div>
     </div>

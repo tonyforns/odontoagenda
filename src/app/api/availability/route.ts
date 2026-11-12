@@ -1,15 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listConfirmedAppointments } from "@/lib/appointments";
-import { availableSlotsForDate, bookableDates } from "@/lib/slots";
+import { clinic } from "@/lib/clinic";
+import { getDefaultDoctor } from "@/lib/doctors";
+import { availableSlotsForDate, datesWithAvailability } from "@/lib/slots";
 
 export async function GET(request: NextRequest) {
   const date = request.nextUrl.searchParams.get("date");
-  const confirmed = await listConfirmedAppointments();
+  const doctor = await getDefaultDoctor();
+  const confirmed = await listConfirmedAppointments(clinic.defaultDoctorId);
 
   if (!date) {
     return NextResponse.json({
-      dates: bookableDates(),
-      timezone: "America/Argentina/Buenos_Aires",
+      dates: datesWithAvailability(confirmed, doctor),
+      timezone: doctor.timezone,
+      doctorId: doctor.id,
+      durationMinutes: doctor.slotMinutes,
+      horizonDays: doctor.bookingHorizonDays,
     });
   }
 
@@ -19,6 +25,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     date,
-    slots: availableSlotsForDate(date, confirmed),
+    slots: availableSlotsForDate(date, confirmed, doctor),
+    durationMinutes: doctor.slotMinutes,
   });
 }

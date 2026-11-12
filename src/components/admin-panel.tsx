@@ -4,7 +4,7 @@ import { format, parse } from "date-fns";
 import { es } from "date-fns/locale";
 import { Loader2 } from "lucide-react";
 import { useState, useTransition } from "react";
-import type { Appointment } from "@/lib/clinic";
+import type { Appointment } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,7 +61,7 @@ export function AdminPanel() {
             placeholder="••••••"
           />
           <p className="text-xs text-teal-900/60">
-            En demo el PIN es <code>aurora</code>. En producción usá el secreto{" "}
+            En demo el PIN es <code>1752</code>. En producción usá el secreto{" "}
             <code>DOCTOR_PIN</code>.
           </p>
         </div>
@@ -120,10 +120,12 @@ export function AdminPanel() {
                   <td className="px-4 py-3 capitalize">{formatLongDate(a.date)}</td>
                   <td className="px-4 py-3">{a.startTime}</td>
                   <td className="px-4 py-3 font-medium text-teal-950">
-                    {a.patientName}
+                    {a.patient
+                      ? `${a.patient.firstName} ${a.patient.lastName}`.trim()
+                      : "—"}
                   </td>
-                  <td className="px-4 py-3">{a.dni}</td>
-                  <td className="px-4 py-3">{a.phone}</td>
+                  <td className="px-4 py-3">{a.patient?.dni ?? "—"}</td>
+                  <td className="px-4 py-3">{a.patient?.phone ?? "—"}</td>
                   <td className="px-4 py-3">
                     <Badge variant="secondary">
                       {a.calendarMode === "google" ? "Google" : "Demo"}

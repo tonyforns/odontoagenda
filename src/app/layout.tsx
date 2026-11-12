@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Outfit } from "next/font/google";
+import { AuthProvider } from "@/components/auth-provider";
 import { SiteHeader } from "@/components/site-header";
 import { clinic } from "@/lib/clinic";
 import "./globals.css";
@@ -28,11 +29,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="clinic-shell min-h-full flex flex-col font-sans text-teal-950">
         <div className="clinic-grid pointer-events-none fixed inset-0 -z-10" />
-        <SiteHeader />
-        <main className="flex-1">{children}</main>
-        <footer className="border-t border-teal-900/10 py-6 text-center text-sm text-teal-900/60">
-          {clinic.name} · {clinic.address}
-        </footer>
+        <AuthProvider>
+          <SiteHeader />
+          <main className="flex-1">{children}</main>
+          <footer className="border-t border-teal-900/10 py-6 text-center text-sm text-teal-900/60">
+            {clinic.name} · {clinic.address}
+          </footer>
+        </AuthProvider>
       </body>
     </html>
   );

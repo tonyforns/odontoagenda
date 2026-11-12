@@ -2,6 +2,7 @@
   "name": "odontoagenda",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@11.5.1",
   "scripts": {
     "dev": "next dev -p 3847",
     "build": "next build",
@@ -16,6 +17,7 @@
     "googleapis": "^189.0.0",
     "lucide-react": "^1.70.0",
     "next": "16.4.5",
+    "next-auth": "^5.0.0-beta.32",
     "pg": "^8.23.1",
     "radix-ui": "^1.8.1",
     "react": "19.3.0",

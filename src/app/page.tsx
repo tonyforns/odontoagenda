@@ -16,8 +16,8 @@ export default function HomePage() {
               Turnos online para {clinic.name}
             </h1>
             <p className="mt-4 max-w-lg text-base leading-relaxed text-teal-900/70 sm:text-lg">
-              Elegí el horario libre de {clinic.doctorName}, reservá con tu DNI
-              y fecha de nacimiento, y sumalo a tu calendario en un clic.
+              Entrá con Gmail, elegí el horario libre de {clinic.doctorName} y
+              sumalo a tu calendario en un clic.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild size="lg" className="bg-teal-800 hover:bg-teal-900">

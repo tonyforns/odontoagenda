@@ -5,10 +5,15 @@ import {
   listConfirmedAppointments,
   updateAppointment,
 } from "@/lib/appointments";
+import { getDefaultDoctor } from "@/lib/doctors";
 import {
   removeAppointmentFromDoctorCalendar,
+  removeAppointmentFromPatientCalendar,
   syncAppointmentToDoctorCalendar,
+  syncAppointmentToPatientCalendar,
 } from "@/lib/google-calendar";
+import { getPatientById } from "@/lib/patients";
+import { publicAppointment } from "@/lib/public-appointment";
 import { availableSlotsForDate, endTimeFor } from "@/lib/slots";
 import { manageSchema } from "@/lib/validators";
 
@@ -40,14 +45,22 @@ export async function PATCH(request: NextRequest, context: Ctx) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
+  const patient = await getPatientById(appointment.patientId);
+
   if (parsed.data.action === "cancel") {
     if (appointment.status === "cancelled") {
-      return NextResponse.json({ appointment });
+      return NextResponse.json({
+        appointment: publicAppointment(appointment),
+      });
     }
     await removeAppointmentFromDoctorCalendar(appointment.googleEventId);
-    const updated = await updateAppointment(id, { status: "cancelled" });
+    await removeAppointmentFromPatientCalendar(appointment, patient);
+    const updated = await updateAppointment(id, {
+      status: "cancelled",
+      patientGoogleEventId: null,
+    });
     return NextResponse.json({
-      appointment: updated,
+      appointment: updated ? publicAppointment(updated) : updated,
       message: "Turno cancelado.",
     });
   }
@@ -59,10 +72,12 @@ export async function PATCH(request: NextRequest, context: Ctx) {
     );
   }
 
-  const confirmed = await listConfirmedAppointments();
+  const doctor = await getDefaultDoctor();
+  const confirmed = await listConfirmedAppointments(appointment.doctorId);
   const available = availableSlotsForDate(
     parsed.data.date,
     confirmed.filter((a) => a.id !== appointment.id),
+    doctor,
   );
 
   if (!available.includes(parsed.data.startTime)) {
@@ -72,7 +87,14 @@ export async function PATCH(request: NextRequest, context: Ctx) {
     );
   }
 
-  if (await isSlotTaken(parsed.data.date, parsed.data.startTime, id)) {
+  if (
+    await isSlotTaken(
+      parsed.data.date,
+      parsed.data.startTime,
+      appointment.doctorId,
+      id,
+    )
+  ) {
     return NextResponse.json(
       { error: "Ese horario acaba de ocuparse" },
       { status: 409 },
@@ -82,13 +104,23 @@ export async function PATCH(request: NextRequest, context: Ctx) {
   let updated = await updateAppointment(id, {
     date: parsed.data.date,
     startTime: parsed.data.startTime,
-    endTime: endTimeFor(parsed.data.startTime),
+    endTime: endTimeFor(parsed.data.startTime, appointment.durationMinutes),
     status: "confirmed",
   });
 
   if (!updated) {
     return NextResponse.json({ error: "No se pudo actualizar" }, { status: 500 });
   }
+
+  updated = {
+    ...updated,
+    patient: patient ?? updated.patient,
+    doctor: {
+      id: doctor.id,
+      fullName: doctor.fullName,
+      specialty: doctor.specialty,
+    },
+  };
 
   try {
     const sync = await syncAppointmentToDoctorCalendar(updated);
@@ -98,11 +130,26 @@ export async function PATCH(request: NextRequest, context: Ctx) {
         calendarMode: sync.mode,
       })) ?? updated;
   } catch {
-    // Keep the reschedule even if Google Calendar fails.
+    // Keep the reschedule even if doctor calendar fails.
+  }
+
+  try {
+    const patientSync = await syncAppointmentToPatientCalendar(
+      updated,
+      patient,
+    );
+    if (patientSync) {
+      updated =
+        (await updateAppointment(id, {
+          patientGoogleEventId: patientSync.eventId,
+        })) ?? updated;
+    }
+  } catch {
+    // Keep the reschedule even if patient calendar fails.
   }
 
   return NextResponse.json({
-    appointment: updated,
+    appointment: publicAppointment(updated),
     message: "Turno reprogramado.",
   });
 }
