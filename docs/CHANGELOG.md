@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-11 (Vercel / pnpm)
+
+- `pnpm-workspace.yaml`: `allowBuilds.esbuild: true` para que `pnpm install` no falle en Vercel.
+
 ## 2026-03-11 (header)
 
 - Header con marca OA, nav en píldora con estado activo y “Salir” tipado (sin wrap en Mis turnos).
