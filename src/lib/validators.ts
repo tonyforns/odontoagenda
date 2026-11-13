@@ -84,3 +84,24 @@ export const staffPatchSchema = z
     (data) => data.active !== undefined || data.role !== undefined,
     "Nada para actualizar.",
   );
+
+const timeHm = z
+  .string()
+  .trim()
+  .transform((value) => value.slice(0, 5))
+  .refine((value) => /^\d{2}:\d{2}$/.test(value), "Horario inválido (HH:mm)");
+
+export const doctorScheduleWindowInputSchema = z
+  .object({
+    weekday: z.number().int().min(0).max(6),
+    startTime: timeHm,
+    endTime: timeHm,
+  })
+  .refine((w) => w.startTime < w.endTime, {
+    message: "La hora de fin debe ser posterior al inicio.",
+  });
+
+export const doctorScheduleReplaceSchema = z.object({
+  doctorId: z.string().min(1).optional(),
+  windows: z.array(doctorScheduleWindowInputSchema).max(50),
+});

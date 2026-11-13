@@ -19,6 +19,15 @@ export type ClinicStaff = {
 
 export type DoctorWindow = { start: string; end: string };
 
+/** Franja de atención de un día de la semana (0=dom … 6=sáb). */
+export type DoctorScheduleWindow = {
+  id: string;
+  doctorId: string;
+  weekday: number;
+  startTime: string;
+  endTime: string;
+};
+
 export type Doctor = {
   id: string;
   fullName: string;
@@ -28,8 +37,12 @@ export type Doctor = {
   address?: string;
   timezone: string;
   slotMinutes: number;
+  /** Derivado de `schedule` cuando existe. */
   workDays: number[];
+  /** Legacy / resumen; la disponibilidad usa `schedule` por weekday. */
   windows: DoctorWindow[];
+  /** Fuente de verdad de horarios por día. */
+  schedule: DoctorScheduleWindow[];
   bookingHorizonDays: number;
   pin: string;
   googleCalendarId?: string | null;

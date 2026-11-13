@@ -151,9 +151,26 @@ function doctorIdForRole(role: StaffRole): string | null {
   return role === "medico" ? clinic.defaultDoctorId : null;
 }
 
+/** Restaura el seed canónico a admin activo (si alguien lo demoteó). */
+async function ensureProtectedAdminRole(): Promise<void> {
+  if (!(await useDatabase())) return;
+  await ensureSchema();
+  const admin = adminStaffSeed();
+  await getPool().query(
+    `UPDATE clinic_staff
+     SET role = 'admin',
+         doctor_id = NULL,
+         active = TRUE,
+         updated_at = NOW()
+     WHERE lower(email) = lower($1)
+       AND (role <> 'admin' OR active = FALSE OR doctor_id IS NOT NULL)`,
+    [admin.email],
+  );
+}
+
 export async function listStaff(): Promise<ClinicStaff[]> {
   if (await useDatabase()) {
-    await ensureSchema();
+    await ensureProtectedAdminRole();
     const { rows } = await getPool().query(
       `SELECT * FROM clinic_staff ORDER BY email ASC`,
     );

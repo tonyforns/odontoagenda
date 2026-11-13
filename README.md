@@ -43,14 +43,14 @@ Datos de ejemplo precargados: DNI `30111222`, nacimiento `1990-05-12`.
 ## Cómo implementamos el flujo
 
 1. **Login**: en `/reservar` el paciente entra con Gmail (Auth.js). Sin sesión, `POST /api/appointments` responde 401.
-2. **Disponibilidad**: lun–vie, 09–12 y 15–18, turnos de 30 minutos (`src/lib/clinic.ts` + `src/lib/slots.ts`).
+2. **Disponibilidad**: franjas por día en `doctor_schedule_windows` (seed lun–vie 09–12 y 15–18, turnos de 30 min).
 3. **Reserva**: valida datos + DNI, guarda el turno con el email de la sesión y llama a Google Calendar (o modo demo).
 4. **Doctor**: si existen `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y `GOOGLE_REFRESH_TOKEN`, se crea/actualiza/borra el evento; si no, modo mock transparente en la UI.
 5. **Paciente**: tras confirmar, botones para Google Calendar y descarga `.ics`.
 6. **Gestión**: `/mis-turnos` con sesión Gmail; cancelar/reprogramar exige el `manageToken` del turno.
-7. **Consultorio**: `/consultorio` para roles staff (`admin` / `medico` / `secretaria`) tras login Gmail.
+7. **Consultorio**: `/consultorio` para roles staff (`admin` / `medico` / `secretaria`) tras login Gmail; pestañas Agenda, Pacientes (alta de ficha) y Horarios.
 8. **Admin**: `/admin` solo rol `admin` — alta/baja de personal en `clinic_staff`.
-9. **Schema**: `doctors` ← `appointments` → `patients` + `clinic_staff` (`migrations/002`–`004`).
+9. **Schema**: `doctors` ← `appointments` → `patients` + `clinic_staff` + `doctor_schedule_windows` (`migrations/002`–`005`).
 
 ## Secretos (producción)
 

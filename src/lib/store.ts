@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
 import { DEFAULT_DOCTOR_SEED, clinic } from "@/lib/clinic";
+import { withDoctorSchedule } from "@/lib/schedule";
 import { endTimeFor } from "@/lib/slots";
 import {
   adminStaffSeed,
@@ -67,8 +68,16 @@ function seedStore(): StoreShape {
 function ensureStaffSeeded(store: StoreShape): void {
   if (!store.clinicStaff) store.clinicStaff = [];
   const admin = adminStaffSeed();
-  if (!store.clinicStaff.some((s) => s.email === admin.email)) {
+  const existingAdmin = store.clinicStaff.find(
+    (s) => s.email === admin.email,
+  );
+  if (!existingAdmin) {
     store.clinicStaff.push(admin);
+  } else {
+    // Seed canónico: siempre admin activo.
+    existingAdmin.role = "admin";
+    existingAdmin.active = true;
+    existingAdmin.doctorId = null;
   }
   const medico = medicoStaffSeedFromEnv();
   if (
@@ -132,11 +141,29 @@ async function writeStore(store: StoreShape): Promise<void> {
 export async function getDoctorById(id: string): Promise<Doctor> {
   const store = await readStore();
   const found = store.doctors.find((d) => d.id === id);
-  if (found) return found;
+  if (found) return withDoctorSchedule(found);
   const doctor = seedDoctor();
   store.doctors.push(doctor);
   await writeStore(store);
-  return doctor;
+  return withDoctorSchedule(doctor);
+}
+
+export async function replaceDoctorSchedule(
+  doctorId: string,
+  schedule: Doctor["schedule"],
+  legacy: { workDays: number[]; windows: Doctor["windows"] },
+): Promise<Doctor["schedule"]> {
+  const store = await readStore();
+  const doctor = store.doctors.find((d) => d.id === doctorId);
+  if (!doctor) {
+    throw new Error("Doctor no encontrado.");
+  }
+  doctor.schedule = schedule;
+  doctor.workDays = legacy.workDays;
+  doctor.windows = legacy.windows;
+  doctor.updatedAt = nowIso();
+  await writeStore(store);
+  return withDoctorSchedule(doctor).schedule;
 }
 
 export async function findActiveStaff(opts: {

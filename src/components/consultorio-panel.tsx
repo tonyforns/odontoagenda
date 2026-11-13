@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Plus } from "lucide-react";
 import { signIn, useSession } from "next-auth/react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import type { Appointment, Patient } from "@/lib/types";
@@ -13,12 +13,14 @@ import {
 import { isStaffRole } from "@/lib/staff-role";
 import { AdminAgendaByDay } from "@/components/admin-agenda-by-day";
 import { AssignSlotDialog } from "@/components/assign-slot-dialog";
+import { ConsultorioScheduleEditor } from "@/components/consultorio-schedule-editor";
+import { CreatePatientDialog } from "@/components/create-patient-dialog";
 import { PatientFichaDialog } from "@/components/patient-ficha-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-type Tab = "agenda" | "pacientes";
+type Tab = "agenda" | "pacientes" | "horarios";
 
 export function ConsultorioPanel() {
   const { data: session, status } = useSession();
@@ -48,6 +50,7 @@ export function ConsultorioPanel() {
   } | null>(null);
   const [patientQuery, setPatientQuery] = useState("");
   const [patientPage, setPatientPage] = useState(1);
+  const [createPatientOpen, setCreatePatientOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const filteredPatients = useMemo(
@@ -96,6 +99,28 @@ export function ConsultorioPanel() {
     if (!res.ok) {
       setError(data.error ?? "No se pudo cancelar el turno.");
       throw new Error(data.error ?? "No se pudo cancelar el turno.");
+    }
+    setError(null);
+    await refreshConsultorio();
+  }
+
+  async function rescheduleAppointmentFromAgenda(
+    appointment: Appointment,
+    slot: { date: string; startTime: string },
+  ) {
+    const res = await fetch(`/api/admin/appointments/${appointment.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "reschedule",
+        date: slot.date,
+        startTime: slot.startTime,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setError(data.error ?? "No se pudo reprogramar el turno.");
+      throw new Error(data.error ?? "No se pudo reprogramar el turno.");
     }
     setError(null);
     await refreshConsultorio();
@@ -222,6 +247,20 @@ export function ConsultorioPanel() {
           >
             Pacientes
           </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={tab === "horarios" ? "default" : "ghost"}
+            className={cn(
+              "h-8",
+              tab === "horarios"
+                ? "bg-teal-800 hover:bg-teal-900"
+                : "text-teal-900/70",
+            )}
+            onClick={() => setTab("horarios")}
+          >
+            Horarios
+          </Button>
         </div>
         <p className="text-xs text-teal-900/60">
           Calendar:{" "}
@@ -239,21 +278,36 @@ export function ConsultorioPanel() {
             appointments={appointments}
             onSelectAppointment={openFichaFromAppointment}
             onCancelAppointment={cancelAppointmentFromAgenda}
+            onRescheduleAppointment={rescheduleAppointmentFromAgenda}
             onSelectFreeSlot={openAssign}
           />
-        ) : patients.length === 0 ? (
-          <p className="p-2 text-sm text-teal-900/70">
-            Todavía no hay pacientes registrados.
-          </p>
+        ) : tab === "horarios" ? (
+          <ConsultorioScheduleEditor />
         ) : (
           <div className="flex h-full min-h-0 flex-col gap-2">
-            <Input
-              value={patientQuery}
-              onChange={(e) => setPatientQuery(e.target.value)}
-              placeholder="Buscar por nombre, DNI, teléfono o email…"
-              className="h-9 shrink-0"
-            />
-            {filteredPatients.length === 0 ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <Input
+                value={patientQuery}
+                onChange={(e) => setPatientQuery(e.target.value)}
+                placeholder="Buscar por nombre, DNI, teléfono o email…"
+                className="h-9 min-w-0 flex-1"
+              />
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 shrink-0 bg-teal-800 hover:bg-teal-900"
+                onClick={() => setCreatePatientOpen(true)}
+              >
+                <Plus className="size-4" />
+                Agregar
+              </Button>
+            </div>
+            {patients.length === 0 ? (
+              <p className="p-2 text-sm text-teal-900/70">
+                Todavía no hay pacientes. Agregá el primero con el botón de
+                arriba.
+              </p>
+            ) : filteredPatients.length === 0 ? (
               <p className="p-2 text-sm text-teal-900/70">
                 Ningún paciente coincide con la búsqueda.
               </p>
@@ -354,6 +408,22 @@ export function ConsultorioPanel() {
         }}
         onAppointmentCancelled={() => {
           void refreshConsultorio();
+        }}
+      />
+
+      <CreatePatientDialog
+        open={createPatientOpen}
+        onOpenChange={setCreatePatientOpen}
+        onCreated={(patient) => {
+          setPatients((prev) => {
+            if (prev.some((p) => p.id === patient.id)) {
+              return prev.map((p) => (p.id === patient.id ? patient : p));
+            }
+            return [...prev, patient];
+          });
+          setPatientQuery("");
+          setPatientPage(1);
+          openFichaFromPatients(patient.id);
         }}
       />
 

@@ -6,8 +6,12 @@ import { availableSlotsForDate, datesWithAvailability } from "@/lib/slots";
 
 export async function GET(request: NextRequest) {
   const date = request.nextUrl.searchParams.get("date");
+  const excludeAppointmentId =
+    request.nextUrl.searchParams.get("excludeAppointmentId");
   const doctor = await getDefaultDoctor();
-  const confirmed = await listConfirmedAppointments(clinic.defaultDoctorId);
+  const confirmed = (await listConfirmedAppointments(clinic.defaultDoctorId)).filter(
+    (a) => !excludeAppointmentId || a.id !== excludeAppointmentId,
+  );
 
   if (!date) {
     return NextResponse.json({

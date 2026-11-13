@@ -6,6 +6,13 @@ import type { Patient, PatientSex } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const SEX_OPTIONS: { value: PatientSex; label: string }[] = [
   { value: "female", label: "Femenino" },
@@ -120,22 +127,22 @@ export function PatientProfileForm({ patient, onSaved }: Props) {
         </div>
         <div className="space-y-2">
           <Label htmlFor="sex">Sexo</Label>
-          <select
-            id="sex"
-            className="flex h-10 w-full rounded-lg border border-input bg-white px-3 text-sm"
-            value={sex}
-            onChange={(e) => setSex(e.target.value as PatientSex)}
+          <Select
+            value={sex || undefined}
+            onValueChange={(value) => setSex(value as PatientSex)}
             required
           >
-            <option value="" disabled>
-              Seleccioná…
-            </option>
-            {SEX_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="sex" className="w-full">
+              <SelectValue placeholder="Seleccioná…" />
+            </SelectTrigger>
+            <SelectContent position="popper" align="start">
+              {SEX_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-2">
           <Label htmlFor="obraSocial">Obra social</Label>

@@ -8,6 +8,7 @@ import {
   groupDayAppointmentsByPeriod,
   groupDayScheduleByPeriod,
   initialWeekStart,
+  nearestSlotStartTime,
   shiftWeek,
   weekStartFromDate,
 } from "@/lib/agenda";
@@ -101,24 +102,49 @@ describe("groupDayAppointmentsByPeriod", () => {
   });
 });
 
+describe("nearestSlotStartTime", () => {
+  it("elige el próximo slot >= ahora", () => {
+    expect(
+      nearestSlotStartTime(
+        [{ startTime: "09:00" }, { startTime: "15:00" }, { startTime: "16:30" }],
+        "15:10",
+      ),
+    ).toBe("16:30");
+  });
+
+  it("si ya pasó todo, el último", () => {
+    expect(
+      nearestSlotStartTime(
+        [{ startTime: "09:00" }, { startTime: "15:00" }],
+        "18:00",
+      ),
+    ).toBe("15:00");
+  });
+});
+
 describe("buildDaySchedule", () => {
   it("shows available and taken slots for the full day board", () => {
-    const schedule = buildDaySchedule("2026-03-11", [
-      appt({
-        id: "1",
-        date: "2026-03-11",
-        startTime: "09:00",
-        status: "confirmed",
-        endTime: "09:30",
-      }),
-      appt({
-        id: "2",
-        date: "2026-03-11",
-        startTime: "15:00",
-        status: "confirmed",
-        endTime: "15:30",
-      }),
-    ]);
+    const schedule = buildDaySchedule(
+      "2026-03-11",
+      [
+        appt({
+          id: "1",
+          date: "2026-03-11",
+          startTime: "09:00",
+          status: "confirmed",
+          endTime: "09:30",
+        }),
+        appt({
+          id: "2",
+          date: "2026-03-11",
+          startTime: "15:00",
+          status: "confirmed",
+          endTime: "15:30",
+        }),
+      ],
+      undefined,
+      new Date("2026-03-10T08:00:00-03:00"),
+    );
 
     expect(schedule.length).toBeGreaterThan(2);
     expect(schedule.find((s) => s.startTime === "09:00")?.status).toBe("taken");
@@ -130,6 +156,19 @@ describe("buildDaySchedule", () => {
       "morning",
       "afternoon",
     ]);
+  });
+
+  it("marca horarios libres pasados", () => {
+    const schedule = buildDaySchedule(
+      "2026-11-12",
+      [],
+      undefined,
+      new Date("2026-11-12T15:00:00-03:00"),
+    );
+    expect(schedule.find((s) => s.startTime === "09:00")?.status).toBe("past");
+    expect(schedule.find((s) => s.startTime === "16:30")?.status).toBe(
+      "available",
+    );
   });
 });
 

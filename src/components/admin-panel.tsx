@@ -5,10 +5,20 @@ import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
 import { useEffect, useState, useTransition } from "react";
 import type { ClinicStaff, StaffRole } from "@/lib/types";
-import { canDeactivateStaff } from "@/lib/staff-rules";
+import {
+  canChangeStaffRole,
+  canDeactivateStaff,
+} from "@/lib/staff-rules";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 const ROLE_OPTIONS: { value: StaffRole; label: string }[] = [
@@ -16,9 +26,6 @@ const ROLE_OPTIONS: { value: StaffRole; label: string }[] = [
   { value: "medico", label: "Médico" },
   { value: "secretaria", label: "Secretaria" },
 ];
-
-const selectClassName =
-  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
 
 export function AdminPanel() {
   const { data: session, status } = useSession();
@@ -173,18 +180,21 @@ export function AdminPanel() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="staff-role">Rol</Label>
-            <select
-              id="staff-role"
+            <Select
               value={role}
-              onChange={(e) => setRole(e.target.value as StaffRole)}
-              className={selectClassName}
+              onValueChange={(value) => setRole(value as StaffRole)}
             >
-              {ROLE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="staff-role" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper" align="start">
+                {ROLE_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex items-end">
             <Button
@@ -220,6 +230,7 @@ export function AdminPanel() {
           <tbody>
             {staff.map((member) => {
               const mayDeactivate = canDeactivateStaff(member);
+              const mayChangeRole = canChangeStaffRole(member);
               return (
                 <tr
                   key={member.id}
@@ -229,23 +240,30 @@ export function AdminPanel() {
                     {member.email}
                   </td>
                   <td className="px-3 py-2">
-                    <select
-                      aria-label={`Rol de ${member.email}`}
+                    <Select
                       value={member.role}
-                      disabled={saving}
-                      className={cn(selectClassName, "h-8 max-w-[9.5rem]")}
-                      onChange={(e) =>
+                      disabled={saving || !mayChangeRole}
+                      onValueChange={(value) =>
                         patchMember(member, {
-                          role: e.target.value as StaffRole,
+                          role: value as StaffRole,
                         })
                       }
                     >
-                      {ROLE_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger
+                        aria-label={`Rol de ${member.email}`}
+                        size="sm"
+                        className="max-w-[9.5rem]"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent position="popper" align="start">
+                        {ROLE_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </td>
                   <td className="px-3 py-2">
                     <span

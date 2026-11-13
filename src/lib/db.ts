@@ -3,6 +3,7 @@ import path from "path";
 import { Pool } from "pg";
 import { DEFAULT_DOCTOR_SEED } from "@/lib/clinic";
 import { shouldUseSsl } from "@/lib/db-ssl";
+import { expandScheduleFromLegacy } from "@/lib/schedule";
 import {
   adminStaffSeed,
   medicoStaffSeedFromEnv,
@@ -11,6 +12,7 @@ import type {
   Appointment,
   ClinicStaff,
   Doctor,
+  DoctorScheduleWindow,
   Patient,
   PatientSex,
   StaffRole,
@@ -88,6 +90,14 @@ type DoctorRow = {
   updated_at: Date | string;
 };
 
+type DoctorScheduleWindowRow = {
+  id: string;
+  doctor_id: string;
+  weekday: number;
+  start_time: string;
+  end_time: string;
+};
+
 type PatientRow = {
   id: string;
   google_sub: string;
@@ -162,12 +172,25 @@ export function rowToDoctor(row: DoctorRow): Doctor {
     slotMinutes: row.slot_minutes,
     workDays: JSON.parse(row.work_days) as number[],
     windows: JSON.parse(row.windows_json) as Doctor["windows"],
+    schedule: [],
     bookingHorizonDays: row.booking_horizon_days,
     pin: row.pin,
     googleCalendarId: row.google_calendar_id,
     googleRefreshToken: row.google_refresh_token,
     createdAt: iso(row.created_at),
     updatedAt: iso(row.updated_at),
+  };
+}
+
+export function rowToDoctorScheduleWindow(
+  row: DoctorScheduleWindowRow,
+): DoctorScheduleWindow {
+  return {
+    id: row.id,
+    doctorId: row.doctor_id,
+    weekday: Number(row.weekday),
+    startTime: row.start_time,
+    endTime: row.end_time,
   };
 }
 
@@ -341,6 +364,44 @@ async function seedClinicStaff(pool: Pool): Promise<void> {
   if (medico) await upsertStaffSeed(pool, medico);
 }
 
+async function seedDoctorSchedule(pool: Pool): Promise<void> {
+  const { rows } = await pool.query<{ id: string }>(
+    `SELECT id FROM doctors ORDER BY id ASC`,
+  );
+  for (const doctor of rows) {
+    const existing = await pool.query(
+      `SELECT 1 FROM doctor_schedule_windows WHERE doctor_id = $1 LIMIT 1`,
+      [doctor.id],
+    );
+    if (existing.rowCount && existing.rowCount > 0) continue;
+
+    const seed =
+      doctor.id === DEFAULT_DOCTOR_SEED.id
+        ? DEFAULT_DOCTOR_SEED.schedule
+        : expandScheduleFromLegacy(
+            doctor.id,
+            DEFAULT_DOCTOR_SEED.workDays,
+            DEFAULT_DOCTOR_SEED.windows,
+          );
+
+    for (const window of seed) {
+      await pool.query(
+        `INSERT INTO doctor_schedule_windows (
+          id, doctor_id, weekday, start_time, end_time
+        ) VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (doctor_id, weekday, start_time) DO NOTHING`,
+        [
+          window.id,
+          doctor.id,
+          window.weekday,
+          window.startTime,
+          window.endTime,
+        ],
+      );
+    }
+  }
+}
+
 export async function ensureSchema(): Promise<void> {
   if (!schemaReady) {
     schemaReady = (async () => {
@@ -444,7 +505,30 @@ export async function ensureSchema(): Promise<void> {
           );
         `);
       }
+      try {
+        const migrateSchedule = await readFile(
+          path.join(process.cwd(), "migrations", "005_doctor_schedule_windows.sql"),
+          "utf8",
+        );
+        await pool.query(migrateSchedule);
+      } catch {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS doctor_schedule_windows (
+            id TEXT PRIMARY KEY,
+            doctor_id TEXT NOT NULL REFERENCES doctors (id) ON DELETE CASCADE,
+            weekday SMALLINT NOT NULL CHECK (weekday BETWEEN 0 AND 6),
+            start_time TEXT NOT NULL,
+            end_time TEXT NOT NULL,
+            CONSTRAINT doctor_schedule_windows_range CHECK (start_time < end_time),
+            CONSTRAINT doctor_schedule_windows_unique
+              UNIQUE (doctor_id, weekday, start_time)
+          );
+          CREATE INDEX IF NOT EXISTS idx_doctor_schedule_doctor_weekday
+            ON doctor_schedule_windows (doctor_id, weekday);
+        `);
+      }
       await seedDoctor(pool);
+      await seedDoctorSchedule(pool);
       await seedClinicStaff(pool);
     })();
   }

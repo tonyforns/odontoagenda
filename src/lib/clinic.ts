@@ -1,3 +1,4 @@
+import { expandScheduleFromLegacy } from "@/lib/schedule";
 import type { Doctor } from "@/lib/types";
 
 export const clinic = {
@@ -19,6 +20,12 @@ export const clinic = {
   defaultDoctorId: "doc_rafael_lovera",
 } as const;
 
+const defaultSchedule = expandScheduleFromLegacy(
+  clinic.defaultDoctorId,
+  [...clinic.workDays],
+  clinic.windows.map((w) => ({ ...w })),
+);
+
 export const DEFAULT_DOCTOR_SEED: Omit<Doctor, "createdAt" | "updatedAt"> = {
   id: clinic.defaultDoctorId,
   fullName: clinic.doctorName,
@@ -29,6 +36,7 @@ export const DEFAULT_DOCTOR_SEED: Omit<Doctor, "createdAt" | "updatedAt"> = {
   slotMinutes: clinic.slotMinutes,
   workDays: [...clinic.workDays],
   windows: clinic.windows.map((w) => ({ ...w })),
+  schedule: defaultSchedule,
   bookingHorizonDays: clinic.bookingHorizonDays,
   pin: process.env.DOCTOR_PIN || "1752",
   googleCalendarId: process.env.GOOGLE_CALENDAR_ID || "primary",

@@ -9,8 +9,9 @@ import {
   startOfWeek,
 } from "date-fns";
 import { es } from "date-fns/locale";
+import { toZonedTime } from "date-fns-tz";
 import { clinic } from "@/lib/clinic";
-import { buildDaySlots, endTimeFor } from "@/lib/slots";
+import { buildDaySlots, endTimeFor, isSlotBookable } from "@/lib/slots";
 import type { Appointment, Doctor } from "@/lib/types";
 
 export type DayAgenda = {
@@ -23,6 +24,12 @@ export type DaySlot =
       startTime: string;
       endTime: string;
       status: "available";
+      appointment?: undefined;
+    }
+  | {
+      startTime: string;
+      endTime: string;
+      status: "past";
       appointment?: undefined;
     }
   | {
@@ -112,13 +119,17 @@ export function groupDayAppointmentsByPeriod(
 }
 
 /**
- * Full day board: every clinic slot, marked available or taken.
+ * Full day board: every clinic slot, marked available, past or taken.
  * Orphan confirmed appointments outside windows are appended.
  */
 export function buildDaySchedule(
   date: string,
   appointments: Appointment[],
-  doctor?: Pick<Doctor, "windows" | "slotMinutes">,
+  doctor?: Pick<
+    Doctor,
+    "windows" | "slotMinutes" | "schedule" | "timezone"
+  >,
+  now = new Date(),
 ): DaySlot[] {
   const slotMinutes = doctor?.slotMinutes ?? clinic.slotMinutes;
   const confirmed = appointments.filter(
@@ -131,6 +142,9 @@ export function buildDaySchedule(
     if (appointment) {
       byStart.delete(startTime);
       return { startTime, endTime, status: "taken", appointment };
+    }
+    if (!isSlotBookable(date, startTime, doctor, now)) {
+      return { startTime, endTime, status: "past" };
     }
     return { startTime, endTime, status: "available" };
   });
@@ -172,6 +186,35 @@ export function groupDayScheduleByPeriod(
 
 export function countTakenSlots(slots: DaySlot[]): number {
   return slots.filter((s) => s.status === "taken").length;
+}
+
+export function countAvailableSlots(slots: DaySlot[]): number {
+  return slots.filter((s) => s.status === "available").length;
+}
+
+/** Hora actual HH:mm en la TZ del consultorio. */
+export function clinicNowHm(now = new Date(), timezone = clinic.timezone): string {
+  return format(toZonedTime(now, timezone), "HH:mm");
+}
+
+export function clinicTodayIso(
+  now = new Date(),
+  timezone = clinic.timezone,
+): string {
+  return format(toZonedTime(now, timezone), "yyyy-MM-dd");
+}
+
+/**
+ * Slot de la lista más cercano a la hora actual:
+ * el primero con startTime >= ahora, o el último si ya pasó todo.
+ */
+export function nearestSlotStartTime(
+  slots: Pick<DaySlot, "startTime">[],
+  nowHm: string,
+): string | null {
+  if (slots.length === 0) return null;
+  const upcoming = slots.find((s) => s.startTime >= nowHm);
+  return upcoming?.startTime ?? slots[slots.length - 1]?.startTime ?? null;
 }
 
 export function formatAgendaDayChip(date: string): string {

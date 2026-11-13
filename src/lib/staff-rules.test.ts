@@ -28,10 +28,14 @@ describe("staff-rules", () => {
     expect(validateStaffPatch(secretaria, { active: false }).ok).toBe(true);
   });
 
-  it("allows changing roles including admin", () => {
-    expect(
-      validateStaffPatch(adminStaffSeed(), { role: "secretaria" }).ok,
-    ).toBe(true);
+  it("blocks changing the protected admin seed role", () => {
+    const blocked = validateStaffPatch(adminStaffSeed(), {
+      role: "secretaria",
+    });
+    expect(blocked.ok).toBe(false);
+  });
+
+  it("allows changing roles for other staff", () => {
     expect(validateStaffPatch(secretaria, { role: "medico" }).ok).toBe(true);
   });
 

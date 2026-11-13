@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { adminAppointmentPatchSchema } from "@/lib/admin-appointment-patch";
 import { cancelAppointmentById } from "@/lib/cancel-appointment";
 import { publicAppointment } from "@/lib/public-appointment";
+import { rescheduleAppointmentById } from "@/lib/reschedule-appointment";
 import { requireStaffSession } from "@/lib/staff";
-import { z } from "zod";
 
 type Ctx = { params: Promise<{ id: string }> };
-
-const adminAppointmentPatchSchema = z.object({
-  action: z.literal("cancel"),
-});
 
 export async function PATCH(request: NextRequest, context: Ctx) {
   const gate = await requireStaffSession(await auth());
@@ -33,13 +30,32 @@ export async function PATCH(request: NextRequest, context: Ctx) {
   }
 
   const { id } = await context.params;
-  const updated = await cancelAppointmentById(id);
-  if (!updated) {
-    return NextResponse.json({ error: "Turno no encontrado" }, { status: 404 });
+
+  if (parsed.data.action === "cancel") {
+    const updated = await cancelAppointmentById(id);
+    if (!updated) {
+      return NextResponse.json({ error: "Turno no encontrado" }, { status: 404 });
+    }
+    return NextResponse.json({
+      appointment: publicAppointment(updated),
+      message: "Turno cancelado.",
+    });
+  }
+
+  const result = await rescheduleAppointmentById(
+    id,
+    parsed.data.date!,
+    parsed.data.startTime!,
+  );
+  if (!result.ok) {
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.status },
+    );
   }
 
   return NextResponse.json({
-    appointment: publicAppointment(updated),
-    message: "Turno cancelado.",
+    appointment: publicAppointment(result.appointment),
+    message: "Turno reprogramado.",
   });
 }

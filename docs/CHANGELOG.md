@@ -1,5 +1,63 @@
 # Changelog
 
+## 2026-11-12 (agenda scroll a hora actual)
+
+- Consultorio: al abrir el día de hoy, la lista de turnos hace scroll al horario actual y lo marca con badge **Ahora**.
+
+## 2026-11-12 (reprogramar consultorio como reservar)
+
+- Agenda consultorio → Reprogramar: diálogo con calendario + horarios (igual que Mis turnos / sacar turno).
+- `/api/availability` acepta `excludeAppointmentId` para liberar el slot del turno que se mueve.
+
+## 2026-11-12 (reprogramar como reservar)
+
+- Mis turnos → Reprogramar: mismo flujo que sacar turno (calendario de días libres + grilla de horarios).
+
+## 2026-11-12 (días y horarios pasados)
+
+- Agenda y Mis turnos: días anteriores y horarios ya pasados quedan deshabilitados (no asignar/reprogramar).
+
+## 2026-11-12 (reprogramar desde agenda y Mis turnos)
+
+- Agenda consultorio: **Reprogramar** → elegir horario libre → confirmar.
+- Mis turnos: al reprogramar, el calendario marca días disponibles para elegir fecha/hora.
+- API admin `PATCH` acepta `action: "reschedule"` (misma lógica que paciente).
+
+## 2026-11-12 (Mis turnos como calendario)
+
+- `/mis-turnos`: grilla mensual con días marcados + panel del día (estado, Calendar, reprogramar/cancelar).
+
+## 2026-11-12 (alta de paciente en consultorio)
+
+- Pestaña Pacientes: botón **Agregar** + `POST /api/admin/patients`.
+
+## 2026-11-12 (validación franjas horarias)
+
+- Horarios: dropdowns de hora (estilo app) sin opciones invertidas ni solapadas; API valida igual.
+
+## 2026-11-12 (horarios en 2 columnas)
+
+- Pestaña Horarios: cards de días en 2 columnas en desktop.
+
+## 2026-11-12 (dropdowns estilo app)
+
+- Selects de formularios pasan a Radix `Select` (lista teal redondeada, sin menú nativo).
+
+## 2026-11-12 (admin seed protegido)
+
+- `iaforns@gmail.com` queda fijo como admin (seed + API + UI sin cambio de rol).
+
+## 2026-11-12 (configurar horarios en consultorio)
+
+- Pestaña **Horarios** en `/consultorio`: franjas por día (alta/baja + guardar).
+- API `GET/PUT /api/admin/schedule` (staff); valida solapes.
+
+## 2026-11-12 (horarios por día)
+
+- Tabla `doctor_schedule_windows` (`migrations/005` + `ensureSchema`): franjas por weekday.
+- Disponibilidad/agenda leen `schedule` por día; `work_days`/`windows_json` quedan como legacy.
+- Seed lun–vie 09–12 y 15–18 para el doctor por defecto.
+
 ## 2026-11-12 (fix build Auth.js JWT types)
 
 - `src/auth.ts`: sin `declare module "next-auth/jwt"` (rompe `tsc` en Auth.js v5); campos JWT tipados con casts seguros.

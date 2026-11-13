@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   adminAssignSchema,
+  adminPatientCreateSchema,
   bookingSchema,
+  doctorScheduleReplaceSchema,
   normalizeDni,
   patientProfileSchema,
   staffPatchSchema,
@@ -89,6 +91,26 @@ describe("adminAssignSchema", () => {
   });
 });
 
+describe("adminPatientCreateSchema", () => {
+  it("accepts ficha with optional email", () => {
+    const result = adminPatientCreateSchema.safeParse({
+      firstName: "Ana",
+      lastName: "López",
+      dni: "30.111.222",
+      birthDate: "1990-05-12",
+      sex: "female",
+      obraSocial: "OSDE",
+      phone: "1155551212",
+      email: " ana@mail.com ",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.dni).toBe("30111222");
+      expect(result.data.email).toBe("ana@mail.com");
+    }
+  });
+});
+
 describe("staffUpsertSchema", () => {
   it("normalizes email and accepts roles", () => {
     const result = staffUpsertSchema.safeParse({
@@ -118,5 +140,29 @@ describe("staffPatchSchema", () => {
 
   it("rejects empty patch", () => {
     expect(staffPatchSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe("doctorScheduleReplaceSchema", () => {
+  it("accepts windows and normalizes HH:mm:ss", () => {
+    const result = doctorScheduleReplaceSchema.safeParse({
+      windows: [
+        { weekday: 1, startTime: "09:00:00", endTime: "12:00:00" },
+      ],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.windows[0]).toMatchObject({
+        startTime: "09:00",
+        endTime: "12:00",
+      });
+    }
+  });
+
+  it("rejects end before start", () => {
+    const result = doctorScheduleReplaceSchema.safeParse({
+      windows: [{ weekday: 1, startTime: "12:00", endTime: "09:00" }],
+    });
+    expect(result.success).toBe(false);
   });
 });

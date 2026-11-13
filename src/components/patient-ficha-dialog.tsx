@@ -22,6 +22,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const SEX_OPTIONS: { value: PatientSex; label: string }[] = [
   { value: "female", label: "Femenino" },
@@ -344,22 +351,22 @@ export function PatientFichaDialog({
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="ficha-sex">Sexo</Label>
-                <select
-                  id="ficha-sex"
-                  value={sex}
-                  onChange={(e) => setSex(e.target.value as PatientSex | "")}
+                <Select
+                  value={sex || undefined}
+                  onValueChange={(value) => setSex(value as PatientSex)}
                   required
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 >
-                  <option value="" disabled>
-                    Seleccionar…
-                  </option>
-                  {SEX_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="ficha-sex" className="w-full">
+                    <SelectValue placeholder="Seleccionar…" />
+                  </SelectTrigger>
+                  <SelectContent position="popper" align="start">
+                    {SEX_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="ficha-phone">Teléfono</Label>

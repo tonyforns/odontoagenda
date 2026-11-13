@@ -14,6 +14,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 const SEX_OPTIONS: { value: PatientSex; label: string }[] = [
@@ -270,20 +277,22 @@ export function AssignSlotDialog({
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="new-sex">Sexo</Label>
-                <select
-                  id="new-sex"
-                  value={sex}
-                  onChange={(e) => setSex(e.target.value as PatientSex | "")}
+                <Select
+                  value={sex || undefined}
+                  onValueChange={(value) => setSex(value as PatientSex)}
                   required
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none"
                 >
-                  <option value="">Seleccionar…</option>
-                  {SEX_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="new-sex" className="w-full">
+                    <SelectValue placeholder="Seleccionar…" />
+                  </SelectTrigger>
+                  <SelectContent position="popper" align="start">
+                    {SEX_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="new-obra">Obra social</Label>

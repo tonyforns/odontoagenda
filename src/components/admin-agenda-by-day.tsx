@@ -7,17 +7,23 @@ import type { Appointment } from "@/lib/types";
 import {
   buildDaySchedule,
   buildWeekDayAgenda,
+  clinicNowHm,
+  clinicTodayIso,
+  countAvailableSlots,
   countTakenSlots,
   formatAgendaDayChip,
   formatAgendaDayLabel,
   formatWeekRangeLabel,
   groupDayScheduleByPeriod,
   initialWeekStart,
+  nearestSlotStartTime,
   shiftWeek,
   weekStartFromDate,
 } from "@/lib/agenda";
+import { isSlotBookable } from "@/lib/slots";
 import { patientDisplayName } from "@/lib/patient-utils";
 import { CancelAppointmentConfirmDialog } from "@/components/cancel-appointment-confirm-dialog";
+import { RescheduleAppointmentConfirmDialog } from "@/components/reschedule-appointment-confirm-dialog";
 import { MiniMonthCalendar } from "@/components/mini-month-calendar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -26,6 +32,10 @@ type Props = {
   appointments: Appointment[];
   onSelectAppointment: (appointment: Appointment) => void;
   onCancelAppointment: (appointment: Appointment) => Promise<void>;
+  onRescheduleAppointment: (
+    appointment: Appointment,
+    slot: { date: string; startTime: string },
+  ) => Promise<void>;
   onSelectFreeSlot: (slot: {
     date: string;
     startTime: string;
@@ -37,6 +47,7 @@ export function AdminAgendaByDay({
   appointments,
   onSelectAppointment,
   onCancelAppointment,
+  onRescheduleAppointment,
   onSelectFreeSlot,
 }: Props) {
   const [weekStart, setWeekStart] = useState(() =>
@@ -46,7 +57,12 @@ export function AdminAgendaByDay({
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
   const [cancelPending, startCancel] = useTransition();
+  const [rescheduleSource, setRescheduleSource] =
+    useState<Appointment | null>(null);
+  const [reschedulePending, startReschedule] = useTransition();
   const calendarRef = useRef<HTMLDivElement>(null);
+  const slotListRef = useRef<HTMLDivElement>(null);
+  const todayIso = clinicTodayIso();
 
   const weekDays = useMemo(
     () => buildWeekDayAgenda(weekStart, appointments),
@@ -68,7 +84,8 @@ export function AdminAgendaByDay({
   const activeDate =
     selectedDate && weekDays.some((d) => d.date === selectedDate)
       ? selectedDate
-      : (weekDays.find((d) => d.appointments.length > 0)?.date ??
+      : (weekDays.find((d) => d.date === todayIso)?.date ??
+        weekDays.find((d) => d.appointments.length > 0)?.date ??
         weekDays[0]?.date ??
         null);
 
@@ -85,8 +102,13 @@ export function AdminAgendaByDay({
     [daySchedule],
   );
   const takenCount = countTakenSlots(daySchedule);
+  const availableCount = countAvailableSlots(daySchedule);
   const calendarSelected =
     activeDate ?? format(weekStart, "yyyy-MM-dd");
+  const scrollTargetTime =
+    activeDate === todayIso
+      ? nearestSlotStartTime(daySchedule, clinicNowHm())
+      : null;
 
   const schedulesByDate = useMemo(() => {
     const map = new Map<string, ReturnType<typeof buildDaySchedule>>();
@@ -120,6 +142,24 @@ export function AdminAgendaByDay({
     };
   }, [calendarOpen]);
 
+  useEffect(() => {
+    const list = slotListRef.current;
+    if (!list || !activeDate) return;
+
+    if (activeDate !== todayIso || !scrollTargetTime) {
+      list.scrollTop = 0;
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      const target = list.querySelector<HTMLElement>(
+        `[data-slot-time="${scrollTargetTime}"]`,
+      );
+      target?.scrollIntoView({ block: "center", behavior: "auto" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeDate, scrollTargetTime, todayIso, daySchedule.length]);
+
   function jumpToDate(date: string) {
     setWeekStart(weekStartFromDate(date));
     setSelectedDate(date);
@@ -133,6 +173,19 @@ export function AdminAgendaByDay({
       try {
         await onCancelAppointment(appointment);
         setCancelTarget(null);
+      } catch {
+        // El padre muestra el error; dejamos el modal abierto.
+      }
+    });
+  }
+
+  function confirmReschedule(slot: { date: string; startTime: string }) {
+    if (!rescheduleSource) return;
+    const appointment = rescheduleSource;
+    startReschedule(async () => {
+      try {
+        await onRescheduleAppointment(appointment, slot);
+        setRescheduleSource(null);
       } catch {
         // El padre muestra el error; dejamos el modal abierto.
       }
@@ -251,11 +304,14 @@ export function AdminAgendaByDay({
               {formatAgendaDayLabel(activeDay.date)}
             </h2>
             <p className="shrink-0 text-xs text-teal-900/55">
-              {takenCount} tomados · {daySchedule.length - takenCount} libres
+              {takenCount} tomados · {availableCount} libres
             </p>
           </header>
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3 sm:px-4">
+          <div
+            ref={slotListRef}
+            className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3 sm:px-4"
+          >
             {dayPeriods.map((period) => (
               <div key={period.period}>
                 <p className="mb-2 text-[0.65rem] font-medium uppercase tracking-[0.14em] text-teal-800/55">
@@ -264,7 +320,16 @@ export function AdminAgendaByDay({
                 <ol className="relative space-y-2 border-l border-teal-800/15 pl-4">
                   {period.slots.map((slot) => {
                     const taken = slot.status === "taken";
+                    const past = slot.status === "past";
                     const appointment = slot.appointment;
+                    const isNowSlot = scrollTargetTime === slot.startTime;
+                    const appointmentPast =
+                      taken && appointment
+                        ? !isSlotBookable(
+                            appointment.date,
+                            appointment.startTime,
+                          )
+                        : false;
                     const meta = taken
                       ? [
                           appointment?.patient?.dni
@@ -275,29 +340,47 @@ export function AdminAgendaByDay({
                         ]
                           .filter(Boolean)
                           .join(" · ")
-                      : "Turno libre";
+                      : past
+                        ? "Horario pasado"
+                        : "Turno libre";
                     const title =
                       taken && appointment?.patient
                         ? patientDisplayName(appointment.patient)
                         : taken
                           ? "Paciente"
-                          : "Disponible";
+                          : past
+                            ? "No disponible"
+                            : "Disponible";
 
                     return (
                       <li
                         key={`${slot.startTime}-${slot.status}`}
-                        className="relative"
+                        data-slot-time={slot.startTime}
+                        className={cn(
+                          "relative",
+                          isNowSlot && "scroll-mt-4",
+                        )}
                       >
                         <span
                           className={cn(
                             "absolute top-[1.55rem] -left-[1.28rem] size-2.5 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(17,94,89,0.2)]",
-                            taken ? "bg-teal-700" : "bg-teal-200",
+                            isNowSlot
+                              ? "size-3 -left-[1.35rem] bg-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,0.35)]"
+                              : taken
+                                ? "bg-teal-700"
+                                : past
+                                  ? "bg-stone-300"
+                                  : "bg-teal-200",
                           )}
                         />
                         {taken && appointment ? (
                           <div
                             className={cn(
-                              "flex items-stretch gap-1 rounded-xl border border-teal-900/10 bg-white/95 p-1 shadow-[0_1px_0_rgba(15,47,44,0.04)] sm:gap-1.5 sm:p-1.5",
+                              "flex items-stretch gap-1 rounded-xl border bg-white/95 p-1 shadow-[0_1px_0_rgba(15,47,44,0.04)] sm:gap-1.5 sm:p-1.5",
+                              isNowSlot
+                                ? "border-amber-400/70 bg-amber-50/80 ring-2 ring-amber-400/40"
+                                : "border-teal-900/10",
+                              appointmentPast && !isNowSlot && "opacity-70",
                             )}
                           >
                             <button
@@ -305,7 +388,14 @@ export function AdminAgendaByDay({
                               onClick={() => onSelectAppointment(appointment)}
                               className="group grid min-w-0 flex-1 grid-cols-[3.4rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg p-1.5 text-left transition hover:bg-teal-50/80 sm:gap-3 sm:p-2"
                             >
-                              <div className="flex h-full flex-col items-center justify-center rounded-lg bg-teal-800/[0.08] px-1 text-center">
+                              <div
+                                className={cn(
+                                  "flex h-full flex-col items-center justify-center rounded-lg px-1 text-center",
+                                  isNowSlot
+                                    ? "bg-amber-500/15"
+                                    : "bg-teal-800/[0.08]",
+                                )}
+                              >
                                 <span className="font-[family-name:var(--font-display)] text-base leading-none tabular-nums text-teal-950">
                                   {slot.startTime}
                                 </span>
@@ -314,9 +404,16 @@ export function AdminAgendaByDay({
                                 </span>
                               </div>
                               <div className="min-w-0">
-                                <p className="truncate text-sm font-medium leading-5 text-teal-950 transition group-hover:text-teal-800">
-                                  {title}
-                                </p>
+                                <div className="flex min-w-0 items-center gap-1.5">
+                                  <p className="truncate text-sm font-medium leading-5 text-teal-950 transition group-hover:text-teal-800">
+                                    {title}
+                                  </p>
+                                  {isNowSlot ? (
+                                    <span className="shrink-0 rounded-full bg-amber-500 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-white">
+                                      Ahora
+                                    </span>
+                                  ) : null}
+                                </div>
                                 <p className="mt-1 truncate text-[0.65rem] leading-4 text-teal-900/55">
                                   {meta || "\u00A0"}
                                 </p>
@@ -325,13 +422,35 @@ export function AdminAgendaByDay({
                                 Ver ficha
                               </span>
                             </button>
-                            <div className="flex shrink-0 items-center px-1">
+                            <div className="flex shrink-0 flex-col items-stretch justify-center gap-1 px-1 sm:flex-row sm:items-center">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 border-teal-900/15 px-2 text-[0.65rem]"
+                                disabled={
+                                  appointmentPast ||
+                                  cancelPending ||
+                                  reschedulePending
+                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCancelTarget(null);
+                                  setRescheduleSource(appointment);
+                                }}
+                              >
+                                Reprogramar
+                              </Button>
                               <Button
                                 type="button"
                                 size="sm"
                                 variant="outline"
                                 className="h-7 border-red-200 px-2 text-[0.65rem] text-red-700 hover:bg-red-50"
-                                disabled={cancelPending}
+                                disabled={
+                                  appointmentPast ||
+                                  cancelPending ||
+                                  reschedulePending
+                                }
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setCancelTarget(appointment);
@@ -339,6 +458,77 @@ export function AdminAgendaByDay({
                               >
                                 Cancelar
                               </Button>
+                            </div>
+                          </div>
+                        ) : past ? (
+                          <div
+                            aria-disabled
+                            className={cn(
+                              "grid h-[4.25rem] w-full grid-cols-[3.4rem_minmax(0,1fr)_4.25rem] items-center gap-2 rounded-xl border border-dashed p-2 text-left sm:gap-3 sm:p-2.5",
+                              isNowSlot
+                                ? "border-amber-400/70 bg-amber-50/70 opacity-100 ring-2 ring-amber-400/40"
+                                : "border-stone-200 bg-stone-50/80 opacity-60",
+                            )}
+                          >
+                            <div
+                              className={cn(
+                                "flex h-full flex-col items-center justify-center rounded-lg px-1 text-center",
+                                isNowSlot ? "bg-amber-500/15" : "bg-stone-200/40",
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  "font-[family-name:var(--font-display)] text-base leading-none tabular-nums",
+                                  isNowSlot ? "text-teal-950" : "text-stone-500",
+                                )}
+                              >
+                                {slot.startTime}
+                              </span>
+                              <span
+                                className={cn(
+                                  "mt-1 text-[0.65rem] tabular-nums",
+                                  isNowSlot ? "text-teal-900/45" : "text-stone-400",
+                                )}
+                              >
+                                {slot.endTime}
+                              </span>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex min-w-0 items-center gap-1.5">
+                                <p
+                                  className={cn(
+                                    "truncate text-sm font-medium leading-5",
+                                    isNowSlot ? "text-teal-950" : "text-stone-500",
+                                  )}
+                                >
+                                  {title}
+                                </p>
+                                {isNowSlot ? (
+                                  <span className="shrink-0 rounded-full bg-amber-500 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-white">
+                                    Ahora
+                                  </span>
+                                ) : null}
+                              </div>
+                              <p
+                                className={cn(
+                                  "mt-1 truncate text-[0.65rem] leading-4",
+                                  isNowSlot ? "text-teal-900/55" : "text-stone-400",
+                                )}
+                              >
+                                {meta}
+                              </p>
+                            </div>
+                            <div className="flex h-full items-center justify-end">
+                              <span
+                                className={cn(
+                                  "rounded-full px-2 py-0.5 text-[0.65rem] font-medium",
+                                  isNowSlot
+                                    ? "bg-amber-500 text-white"
+                                    : "bg-stone-200/80 text-stone-500",
+                                )}
+                              >
+                                {isNowSlot ? "Ahora" : "Pasado"}
+                              </span>
                             </div>
                           </div>
                         ) : (
@@ -351,9 +541,21 @@ export function AdminAgendaByDay({
                                 endTime: slot.endTime,
                               })
                             }
-                            className="group grid h-[4.25rem] w-full grid-cols-[3.4rem_minmax(0,1fr)_4.25rem] items-center gap-2 rounded-xl border border-dashed border-teal-900/12 bg-white/55 p-2 text-left transition hover:border-teal-700/30 hover:bg-emerald-50/50 sm:gap-3 sm:p-2.5"
+                            className={cn(
+                              "group grid h-[4.25rem] w-full grid-cols-[3.4rem_minmax(0,1fr)_4.25rem] items-center gap-2 rounded-xl border border-dashed p-2 text-left transition sm:gap-3 sm:p-2.5",
+                              isNowSlot
+                                ? "border-amber-400/70 bg-amber-50/80 ring-2 ring-amber-400/40"
+                                : "border-teal-900/12 bg-white/55 hover:border-teal-700/30 hover:bg-emerald-50/50",
+                            )}
                           >
-                            <div className="flex h-full flex-col items-center justify-center rounded-lg bg-teal-900/[0.03] px-1 text-center">
+                            <div
+                              className={cn(
+                                "flex h-full flex-col items-center justify-center rounded-lg px-1 text-center",
+                                isNowSlot
+                                  ? "bg-amber-500/15"
+                                  : "bg-teal-900/[0.03]",
+                              )}
+                            >
                               <span className="font-[family-name:var(--font-display)] text-base leading-none tabular-nums text-teal-950">
                                 {slot.startTime}
                               </span>
@@ -362,16 +564,30 @@ export function AdminAgendaByDay({
                               </span>
                             </div>
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-medium leading-5 text-teal-900/45">
-                                {title}
-                              </p>
+                              <div className="flex min-w-0 items-center gap-1.5">
+                                <p className="truncate text-sm font-medium leading-5 text-teal-900/45">
+                                  {title}
+                                </p>
+                                {isNowSlot ? (
+                                  <span className="shrink-0 rounded-full bg-amber-500 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-white">
+                                    Ahora
+                                  </span>
+                                ) : null}
+                              </div>
                               <p className="mt-1 truncate text-[0.65rem] leading-4 text-teal-900/55">
                                 {meta || "\u00A0"}
                               </p>
                             </div>
                             <div className="flex h-full items-center justify-end">
-                              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[0.65rem] font-medium text-emerald-800/80">
-                                Asignar
+                              <span
+                                className={cn(
+                                  "rounded-full px-2 py-0.5 text-[0.65rem] font-medium",
+                                  isNowSlot
+                                    ? "bg-amber-500 text-white"
+                                    : "bg-emerald-50 text-emerald-800/80",
+                                )}
+                              >
+                                {isNowSlot ? "Ahora" : "Asignar"}
                               </span>
                             </div>
                           </button>
@@ -394,6 +610,16 @@ export function AdminAgendaByDay({
           if (!open && !cancelPending) setCancelTarget(null);
         }}
         onConfirm={confirmCancel}
+      />
+
+      <RescheduleAppointmentConfirmDialog
+        appointment={rescheduleSource}
+        open={Boolean(rescheduleSource)}
+        pending={reschedulePending}
+        onOpenChange={(open) => {
+          if (!open && !reschedulePending) setRescheduleSource(null);
+        }}
+        onConfirm={confirmReschedule}
       />
     </div>
   );
